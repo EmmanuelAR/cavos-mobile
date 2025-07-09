@@ -15,7 +15,7 @@ import { useWallet } from '../../atoms/wallet';
 import { getBTCPrice } from '../../lib/utils';
 import Header from '../components/Header';
 import { supabase } from '../../lib/supabaseClient';
-import { CAVOS_CORE_API, wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../../lib/constants';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 import LoadingModal from '../components/LoadingModal';
 import axios from 'axios';
 
@@ -37,7 +37,7 @@ export default function SellBTC() {
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                         },
                     }
                 );
@@ -97,7 +97,7 @@ export default function SellBTC() {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
                 }
             );

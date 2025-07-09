@@ -15,7 +15,7 @@ import Header from '../components/Header';
 import { useWallet } from '../../atoms/wallet';
 import { getBTCPrice } from '../../lib/utils';
 import axios from 'axios';
-import { CAVOS_CORE_API, wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../../lib/constants';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 import { supabase } from '../../lib/supabaseClient';
 import LoadingModal from '../components/LoadingModal';
 import * as Font from 'expo-font';
@@ -47,7 +47,7 @@ export default function InvestBTC() {
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                         },
                     }
                 );
@@ -105,7 +105,7 @@ export default function InvestBTC() {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
                 }
             );

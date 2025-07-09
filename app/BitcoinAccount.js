@@ -17,7 +17,7 @@ import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { useWallet } from '../atoms/wallet';
 import axios from 'axios';
-import { wallet_provider_api, WALLET_PROVIDER_TOKEN, CAVOS_CORE_API } from '../lib/constants';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LoadingModal from './components/LoadingModal';
 import LoggedHeader from './components/LoggedHeader';
@@ -87,7 +87,7 @@ export default function BitcoinAccount() {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
                 }
             );
@@ -102,7 +102,7 @@ export default function BitcoinAccount() {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
                 }
             );
@@ -115,7 +115,7 @@ export default function BitcoinAccount() {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
                 }
             );
@@ -180,7 +180,7 @@ export default function BitcoinAccount() {
                     {
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${WALLET_PROVIDER_TOKEN}`,
+                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                         },
                     }
                 );

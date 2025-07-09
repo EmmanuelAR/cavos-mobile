@@ -109,8 +109,6 @@ cavos-mobile/
 3. **Set up environment variables**
    Create a `.env` file in the root directory:
    ```env
-   WALLET_PROVIDER_API=https://your-api-endpoint.com
-   WALLET_PROVIDER_TOKEN=your-api-token
    SUPABASE_URL=your-supabase-url
    SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
