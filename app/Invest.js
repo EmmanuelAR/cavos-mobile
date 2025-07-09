@@ -18,7 +18,7 @@ import Header from './components/Header';
 import { useWallet } from '../atoms/wallet';
 import { getWalletBalance } from '../lib/utils';
 import axios from 'axios';
-import { wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../lib/constants';
+import { CAVOS_CORE_API, wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../lib/constants';
 import { supabase } from '../lib/supabaseClient';
 import LoadingModal from './components/LoadingModal';
 
@@ -75,7 +75,7 @@ export default function Invest() {
     const createPosition = async () => {
         try {
             const response = await axios.post(
-                wallet_provider_api + 'position',
+                CAVOS_CORE_API + 'v1/vesu/position/usd/create',
                 {
                     amount: investmentAmount,
                     address: wallet.address,

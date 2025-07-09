@@ -14,7 +14,7 @@ import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabaseClient';
-import { wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../../lib/constants';
+import { CAVOS_CORE_API, wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../../lib/constants';
 import axios from 'axios';
 import { decryptPin, decryptSecretWithPin, encryptPin, encryptSecretWithPin } from '../../lib/utils';
 import { useWallet } from '../../atoms/wallet';
@@ -193,7 +193,7 @@ export default function Pin() {
     const createWallet = async (pinP) => {
         try {
             const response = await axios.post(
-                wallet_provider_api + 'wallet',
+                CAVOS_CORE_API + 'v1/wallet/create',
                 { pin: pinP },
                 {
                     headers: {

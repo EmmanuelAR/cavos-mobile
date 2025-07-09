@@ -23,7 +23,7 @@ import Header from "./components/Header";
 import { useWallet } from "../atoms/wallet";
 import { getWalletBalance } from "../lib/utils";
 import axios from "axios";
-import { wallet_provider_api, WALLET_PROVIDER_TOKEN } from "../lib/constants";
+import { CAVOS_CORE_API, wallet_provider_api, WALLET_PROVIDER_TOKEN } from "../lib/constants";
 import { supabase } from "../lib/supabaseClient";
 import LoadingModal from "./components/LoadingModal";
 import LoggedHeader from "./components/LoggedHeader";
@@ -190,7 +190,7 @@ export default function Send() {
             setIsLoading(true);
             try {
               const response = await axios.post(
-                wallet_provider_api + "wallet/send",
+                CAVOS_CORE_API + "v1/wallet/usd/send",
                 {
                   amount: amount,
                   address: wallet.address,
@@ -369,7 +369,7 @@ export default function Send() {
             setIsLoading(true);
             try {
               const response = await axios.post(
-                wallet_provider_api + "wallet/send",
+                CAVOS_CORE_API + "v1/wallet/usd/send",
                 {
                   amount: parsedAmount,
                   address: wallet.address,

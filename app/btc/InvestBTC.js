@@ -15,7 +15,7 @@ import Header from '../components/Header';
 import { useWallet } from '../../atoms/wallet';
 import { getBTCPrice } from '../../lib/utils';
 import axios from 'axios';
-import { wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../../lib/constants';
+import { CAVOS_CORE_API, wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../../lib/constants';
 import { supabase } from '../../lib/supabaseClient';
 import LoadingModal from '../components/LoadingModal';
 import * as Font from 'expo-font';
@@ -42,7 +42,7 @@ export default function InvestBTC() {
             try {
                 setIsLoading(true);
                 const response = await axios.post(
-                    wallet_provider_api + "wallet/btc/balance",
+                    CAVOS_CORE_API + "v1/wallet/btc/balance",
                     { address: wallet.address },
                     {
                         headers: {
@@ -95,7 +95,7 @@ export default function InvestBTC() {
         try {
             setIsLoading(true);
             const response = await axios.post(
-                wallet_provider_api + 'vesu/positions/btc/create',
+                CAVOS_CORE_API + 'v1/vesu/position/btc/create',
                 {
                     amount: amount,
                     address: wallet.address,

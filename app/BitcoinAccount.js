@@ -17,7 +17,7 @@ import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { useWallet } from '../atoms/wallet';
 import axios from 'axios';
-import { wallet_provider_api, WALLET_PROVIDER_TOKEN } from '../lib/constants';
+import { wallet_provider_api, WALLET_PROVIDER_TOKEN, CAVOS_CORE_API } from '../lib/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LoadingModal from './components/LoadingModal';
 import LoggedHeader from './components/LoggedHeader';
@@ -82,7 +82,7 @@ export default function BitcoinAccount() {
         try {
             setIsLoading(true);
             const balanceResponse = await axios.post(
-                wallet_provider_api + "wallet/btc/balance",
+                CAVOS_CORE_API + "v1/wallet/btc/balance",
                 { address: wallet.address },
                 {
                     headers: {
@@ -94,7 +94,7 @@ export default function BitcoinAccount() {
             setBtcBalance(balanceResponse.data.balance);
 
             const investmentResponse = await axios.post(
-                wallet_provider_api + 'vesu/positions',
+                CAVOS_CORE_API + 'v1/vesu/positions',
                 {
                     address: wallet.address,
                     pool: "Genesis",
@@ -107,7 +107,7 @@ export default function BitcoinAccount() {
                 }
             );
             const apyResponse = await axios.post(
-                wallet_provider_api + 'vesu/pool/apy',
+                CAVOS_CORE_API + 'v1/vesu/pool/apy',
                 {
                     poolName: "Genesis",
                     assetSymbol: "WBTC"
@@ -170,7 +170,7 @@ export default function BitcoinAccount() {
             setIsLoading(true);
             try {
                 const response = await axios.post(
-                    wallet_provider_api + 'vesu/positions/btc/withdraw',
+                    CAVOS_CORE_API + 'v1/vesu/position/btc/withdraw',
                     {
                         address: wallet.address,
                         hashedPk: wallet.private_key,
