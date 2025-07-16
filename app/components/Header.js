@@ -2,20 +2,21 @@ import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useUserStore } from '../../atoms/userId';
-import { useWallet } from '../../atoms/wallet';
-import { supabase } from '../../lib/supabaseClient';
+import { useCavosWallet } from '../../atoms/cavosWallet';
+import { useFaceIdSettings } from '../../atoms/faceIdSettings';
+import { useUserProfile } from '../../atoms/userProfile';
 
 export default function Header() {
     const navigation = useNavigation();
-    const setUserId = useUserStore((state) => state.setUserId);
-    const setWallet = useWallet((state) => state.setWallet);
+    const { setCavosWallet } = useCavosWallet();
+    const { setFaceIdEnabled } = useFaceIdSettings();
+    const { setUserProfile } = useUserProfile();
 
     const goToLogin = () => {
-        navigation.navigate('Login');
-        setUserId(null);
-        setWallet(null);
-        supabase.auth.signOut();
+        navigation.replace('Login');
+        setCavosWallet(null);
+        setFaceIdEnabled(null);
+        setUserProfile(null);
         Alert.alert('Logout', 'You have been logged out successfully.');
     };
 

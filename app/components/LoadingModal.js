@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
         zIndex: 999,
     },
     loadingContainer: {
-        backgroundColor: '#11110E',
+        backgroundColor: '#000',
         padding: 20,
         borderRadius: 10,
         alignItems: 'center',

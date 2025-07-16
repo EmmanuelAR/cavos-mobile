@@ -27,8 +27,6 @@ export default function Invitation() {
 
         try {
             setIsLoading(true);
-
-            // Check if the invitation code exists
             const { data: codeData, error: codeError } = await supabase
                 .from('code')
                 .select('*')
@@ -55,7 +53,7 @@ export default function Invitation() {
             }
 
             setIsLoading(false);
-            navigation.navigate('Pin');
+            navigation.replace('PhoneLogin');
         } catch (error) {
             console.error('Error validating invitation code:', error);
             setIsLoading(false);
@@ -102,7 +100,7 @@ export default function Invitation() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         paddingTop: Platform.OS === 'android' ? 20 : 0,
     },
     content: {

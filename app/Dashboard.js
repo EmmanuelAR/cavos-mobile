@@ -20,12 +20,12 @@ import {
   JetBrainsMono_400Regular,
 } from "@expo-google-fonts/jetbrains-mono";
 import { getWalletBalance } from "../lib/utils";
-import { useWallet } from "../atoms/wallet";
-import { useUserStore } from "../atoms/userId";
+import { useCavosWallet } from "../atoms/cavosWallet";
 import { supabase } from "../lib/supabaseClient";
 import LoggedHeader from "./components/LoggedHeader"; // Usando el nuevo header
 import LoadingModal from "./components/LoadingModal";
 import { TransactionInvoiceModal } from "./components/TransactionInvoiceModal";
+import * as SecureStore from 'expo-secure-store';
 
 const { width, height } = Dimensions.get("window");
 
@@ -37,8 +37,7 @@ const moderateScale = (size, factor = 0.5) =>
 export default function UpdatedDashboard() {
   const [balance, setBalance] = useState(0.0);
   const [transaction, setTransactions] = useState([]);
-  const wallet = useWallet((state) => state.wallet);
-  const userId = useUserStore((state) => state.userId);
+  const cavosWallet = useCavosWallet((state) => state.cavosWallet);
   const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -60,13 +59,14 @@ export default function UpdatedDashboard() {
 
   const getAccountInfo = async () => {
     try {
+      console.log(cavosWallet.tokenExpiry);
       setIsLoading(true);
-      const newBalance = await getWalletBalance(wallet.address);
+      const newBalance = await getWalletBalance(cavosWallet.address, cavosWallet.network);
       setBalance(newBalance.balance);
       const { data, error } = await supabase
         .from("transaction")
         .select("*")
-        .eq("uid", userId)
+        .eq("auth0_id", cavosWallet?.user_id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -85,10 +85,10 @@ export default function UpdatedDashboard() {
   };
 
   useEffect(() => {
-    if (wallet) {
+    if (cavosWallet) {
       getAccountInfo();
     }
-  }, [wallet]);
+  }, [cavosWallet]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -166,7 +166,7 @@ export default function UpdatedDashboard() {
           {/* Balance Section */}
           <View style={styles.balanceSection}>
             <Text style={styles.balanceLabel}>YOUR BALANCE</Text>
-            <Text style={styles.balanceAmount}>{balance.toFixed(2)} USD</Text>
+            <Text style={styles.balanceAmount}>{(balance || 0).toFixed(2)} USD</Text>
           </View>
 
           {/* Action Buttons - Solo Buy y Sell */}
@@ -244,7 +244,7 @@ export default function UpdatedDashboard() {
                       tx.type === "Receive"
                         ? "+"
                         : "-"}
-                      {tx.amount.toFixed(2)} USDC
+                      {(tx.amount || 0).toFixed(2)} USDC
                     </Text>
                     <Text style={styles.transactionDate}>
                       {new Date(tx.created_at).toLocaleString("en-GB", {

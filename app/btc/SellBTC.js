@@ -11,9 +11,8 @@ import {
     Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useWallet } from '../../atoms/wallet';
+import { useCavosWallet } from '../../atoms/cavosWallet';
 import { getBTCPrice } from '../../lib/utils';
-import Header from '../components/Header';
 import { supabase } from '../../lib/supabaseClient';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 import LoadingModal from '../components/LoadingModal';
@@ -23,7 +22,7 @@ export default function SellBTC() {
     const [btcAmount, setBtcAmount] = useState('');
     const [btcBalance, setBtcBalance] = useState(0);
     const [btcRate, setBtcRate] = useState(0);
-    const wallet = useWallet((state) => state.wallet);
+    const cavosWallet = useCavosWallet((state) => state.cavosWallet);
     const navigation = useNavigation();
     const [isLoading, setIsLoading] = useState(true);
 
@@ -33,7 +32,7 @@ export default function SellBTC() {
                 setIsLoading(true);
                 const response = await axios.post(
                     CAVOS_CORE_API + "v1/wallet/btc/balance",
-                    { address: wallet.address },
+                    { address: cavosWallet.address },
                     {
                         headers: {
                             'Content-Type': 'application/json',
@@ -60,10 +59,10 @@ export default function SellBTC() {
             }
         }
 
-        if (wallet) {
+        if (cavosWallet) {
             fetchBalance();
         }
-    }, [wallet]);
+    }, [cavosWallet]);
 
     const handleChangeAmount = (text) => {
         const sanitized = text.replace(',', '.');
@@ -84,35 +83,25 @@ export default function SellBTC() {
 
         try {
             setIsLoading(true);
-            const response = await axios.post(
-                CAVOS_CORE_API + 'v1/wallet/usd/swap',
-                {
-                    address: wallet.address,
-                    hashedPk: wallet.private_key,
-                    hashedPin: wallet.pin,
-                    sellTokenAddress: '0x3Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC',
-                    buyTokenAddress: '0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8',
-                    amount: Math.round(amount * 10 ** 8),
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
-                    },
-                }
-            );
+            const txHash = await cavosWallet.swap(
+                Math.round(amount * 10 ** 8),
+                "0x3Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC",
+                "0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
+            )
 
-            if (!response.data.result) {
-                throw new Error('Transaction failed');
+            console.log(txHash);
+            
+            if (txHash.error) {
+                Alert.alert("Error", "Failed to buy BTC, please try again.");
+                setIsLoading(false);
+                return;
             }
-
-            const txHash = response.data.result;
 
             const { error: txError } = await supabase
                 .from('transaction')
                 .insert([
                     {
-                        uid: wallet.uid,
+                        auth0_id: cavosWallet.user_id,
                         type: "Sell BTC",
                         amount: amount * btcRate,
                         tx_hash: txHash,
@@ -127,7 +116,7 @@ export default function SellBTC() {
             }
 
             setIsLoading(false);
-            Alert.alert('Success', `You've sold ${amount.toFixed(6)} BTC for USDC.`);
+            Alert.alert('Success', `You've sold ${(amount || 0).toFixed(6)} BTC for USDC.`);
             setBtcAmount('');
             navigation.navigate('BottomMenu');
         } catch (error) {
@@ -156,7 +145,7 @@ export default function SellBTC() {
                 {/* Balance Section */}
                 <View style={styles.balanceCard}>
                     <Text style={styles.balanceLabel}>AVAILABLE BTC BALANCE</Text>
-                    <Text style={styles.balanceAmount}>{btcBalance.toFixed(6)} BTC</Text>
+                    <Text style={styles.balanceAmount}>{(btcBalance || 0).toFixed(6)} BTC</Text>
                 </View>
 
                 {/* Current BTC Price Section */}
@@ -220,7 +209,7 @@ export default function SellBTC() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         paddingTop: Platform.OS === 'android' ? 20 : 0,
     },
     scrollContent: {

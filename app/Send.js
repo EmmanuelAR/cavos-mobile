@@ -5,13 +5,13 @@ import {
   View,
   TouchableOpacity,
   SafeAreaView,
-  ScrollView,
   TextInput,
   Dimensions,
   Platform,
   Alert,
   Animated,
 } from "react-native";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Font from "expo-font";
 import {
@@ -19,15 +19,14 @@ import {
   JetBrainsMono_400Regular,
 } from "@expo-google-fonts/jetbrains-mono";
 import { MaterialIcons } from "@expo/vector-icons";
-import Header from "./components/Header";
-import { useWallet } from "../atoms/wallet";
+import { useCavosWallet } from '../atoms/cavosWallet';
 import { getWalletBalance } from "../lib/utils";
 import axios from "axios";
-import { CAVOS_CORE_API,CAVOS_CORE_TOKEN } from "../lib/constants";
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from "../lib/constants";
 import { supabase } from "../lib/supabaseClient";
 import LoadingModal from "./components/LoadingModal";
-import LoggedHeader from "./components/LoggedHeader";
 import QRScanner from "./QRScanner";
+import { formatAmount } from 'cavos-service-sdk';
 
 const { width, height } = Dimensions.get("window");
 
@@ -43,7 +42,7 @@ export default function Send() {
   const [recipientAddress, setRecipientAddress] = useState("");
   const [balance, setBalance] = useState(0);
   const [selectedMethod, setSelectedMethod] = useState("address");
-  const wallet = useWallet((state) => state.wallet);
+  const cavosWallet = useCavosWallet((state) => state.cavosWallet);
   const [isLoading, setIsLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -66,24 +65,24 @@ export default function Send() {
   useEffect(() => {
     async function getAccountInfo() {
       try {
-        const newBalance = await getWalletBalance(wallet.address);
+        const newBalance = await getWalletBalance(cavosWallet.address);
         setBalance(newBalance.balance);
       } catch (error) {
         console.error("Error fetching balance:", error);
       }
     }
 
-    if (wallet) {
+    if (cavosWallet) {
       getAccountInfo();
     }
-  }, [wallet]);
+  }, [cavosWallet]);
 
   useEffect(() => {
     if (route.params?.recipientAddress) {
       let addr = route.params.recipientAddress;
-      const addrFormatted = addr.startsWith("0x")
+      const addrFormatted = addr?.startsWith("0x")
         ? "0x" + addr.slice(2).padStart(64, "0")
-        : "0x" + addr.padStart(64, "0");
+        : "0x" + addr?.padStart(64, "0") || "";
       setRecipientAddress(addrFormatted);
     }
   }, [route.params?.recipientAddress]);
@@ -131,7 +130,7 @@ export default function Send() {
   };
 
   const validateStarknetAddress = (address) => {
-    return address.startsWith("0x") && address.length === 66;
+    return address?.startsWith("0x") && address?.length === 66;
   };
 
   const calculateFees = (amountValue) => {
@@ -189,35 +188,17 @@ export default function Send() {
           onPress: async () => {
             setIsLoading(true);
             try {
-              const response = await axios.post(
-                CAVOS_CORE_API + "v1/wallet/usd/send",
-                {
-                  amount: amount,
-                  address: wallet.address,
-                  hashedPk: wallet.private_key,
-                  hashedPin: wallet.pin,
-                  receiverAddress: recipientAddress,
-                },
-                {
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
-                  },
-                }
+              const calldata = [recipientAddress, await formatAmount(amount, 6)];
+              const txHash = await cavosWallet.execute(
+                "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+                "transfer",
+                calldata
               );
-
-              if (!response.data.result) {
-                throw new Error("Transaction failed");
-              }
-
-              const txHash = response.data.result;
-
-              // Guarda la transacción del remitente (Send)
               const { error: txError } = await supabase
                 .from("transaction")
                 .insert([
                   {
-                    uid: wallet.uid,
+                    auth0_id: cavosWallet.user_id,
                     type: "Send",
                     amount: amount,
                     tx_hash: txHash,
@@ -232,7 +213,7 @@ export default function Send() {
               }
 
               let normalizedAddress = recipientAddress;
-              if (normalizedAddress.startsWith("0x")) {
+              if (normalizedAddress?.startsWith("0x")) {
                 normalizedAddress =
                   "0x" + normalizedAddress.slice(2).replace(/^0+/, "");
               }
@@ -240,15 +221,15 @@ export default function Send() {
               const { data: recipientUser, error: recipientError } =
                 await supabase
                   .from("user_wallet")
-                  .select("uid")
+                  .select("user_id")
                   .eq("address", normalizedAddress)
                   .single();
-              if (recipientUser && recipientUser.uid) {
+              if (recipientUser && recipientUser.user_id) {
                 const { error: txError } = await supabase
                   .from("transaction")
                   .insert([
                     {
-                      uid: recipientUser.uid,
+                      auth0_id: recipientUser.user_id,
                       type: "Receive",
                       amount: amount,
                       tx_hash: txHash,
@@ -372,9 +353,9 @@ export default function Send() {
                 CAVOS_CORE_API + "v1/wallet/usd/send",
                 {
                   amount: parsedAmount,
-                  address: wallet.address,
-                  hashedPk: wallet.private_key,
-                  hashedPin: wallet.pin,
+                  address: cavosWallet.address,
+                  hashedPk: cavosWallet.private_key,
+                  hashedPin: cavosWallet.pin,
                   receiverAddress: scannedAddress,
                 },
                 {
@@ -396,7 +377,7 @@ export default function Send() {
                 .from("transaction")
                 .insert([
                   {
-                    uid: wallet.uid,
+                    auth0_id: cavosWallet.user_id,
                     type: "Send",
                     amount: parsedAmount,
                     tx_hash: txHash,
@@ -412,7 +393,7 @@ export default function Send() {
               }
 
               let normalizedAddress = scannedAddress;
-              if (normalizedAddress.startsWith("0x")) {
+              if (normalizedAddress?.startsWith("0x")) {
                 normalizedAddress =
                   "0x" + normalizedAddress.slice(2).replace(/^0+/, "");
               }
@@ -420,15 +401,15 @@ export default function Send() {
               const { data: recipientUser, error: recipientError } =
                 await supabase
                   .from("user_wallet")
-                  .select("uid")
+                  .select("user_id")
                   .eq("address", normalizedAddress)
                   .single();
-              if (recipientUser && recipientUser.uid) {
+              if (recipientUser && recipientUser.user_id) {
                 const { error: txError } = await supabase
                   .from("transaction")
                   .insert([
                     {
-                      uid: recipientUser.uid,
+                      auth0_id: recipientUser.user_id,
                       type: "Receive",
                       amount: parsedAmount,
                       tx_hash: txHash,
@@ -480,10 +461,12 @@ export default function Send() {
   return (
     <SafeAreaView style={styles.container}>
       {isLoading && <LoadingModal />}
-
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={60}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Header Section */}
         <View style={styles.headerSection}>
@@ -562,7 +545,7 @@ export default function Send() {
             <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
             <View style={styles.balanceIndicator} />
           </View>
-          <Text style={styles.balanceAmount}>${balance.toFixed(2)}</Text>
+                      <Text style={styles.balanceAmount}>${(balance || 0).toFixed(2)}</Text>
           <Text style={styles.balanceSubtext}>USD</Text>
         </View>
 
@@ -574,8 +557,8 @@ export default function Send() {
               style={[
                 styles.addressInputContainer,
                 recipientAddress &&
-                  !validateStarknetAddress(recipientAddress) &&
-                  styles.inputError,
+                !validateStarknetAddress(recipientAddress) &&
+                styles.inputError,
               ]}
             >
               <TextInput
@@ -661,7 +644,7 @@ export default function Send() {
             </View>
             {amount && parseFloat(amount) > balance && (
               <Text style={styles.errorText}>
-                Insufficient balance. Available: ${balance.toFixed(2)}
+                Insufficient balance. Available: ${(balance || 0).toFixed(2)}
               </Text>
             )}
           </View>
@@ -692,14 +675,14 @@ export default function Send() {
                     parseFloat(amount) > balance && styles.summaryValueError,
                   ]}
                 >
-                  ${parseFloat(amount).toFixed(2)}
+                  ${parseFloat(amount || 0).toFixed(2)}
                 </Text>
               </View>
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Platform Fee</Text>
                 <Text style={styles.summaryValue}>
-                  ${calculateFees(amount).platformFee.toFixed(2)}
+                  ${(calculateFees(amount || 0).platformFee || 0).toFixed(2)}
                 </Text>
               </View>
 
@@ -716,10 +699,10 @@ export default function Send() {
                   style={[
                     styles.totalValue,
                     calculateFees(amount).totalAmount > balance &&
-                      styles.totalValueError,
+                    styles.totalValueError,
                   ]}
                 >
-                  ${calculateFees(amount).totalAmount.toFixed(2)}
+                  ${(calculateFees(amount || 0).totalAmount || 0).toFixed(2)}
                 </Text>
               </View>
 
@@ -745,7 +728,7 @@ export default function Send() {
               parseFloat(amount) <= 0 ||
               !recipientAddress ||
               !validateStarknetAddress(recipientAddress)) &&
-              styles.disabledButton,
+            styles.disabledButton,
           ]}
           onPress={handleSend}
           disabled={
@@ -766,7 +749,7 @@ export default function Send() {
             cannot be reversed once confirmed.
           </Text>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

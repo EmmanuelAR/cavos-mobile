@@ -21,8 +21,7 @@ import {
   JetBrainsMono_400Regular,
 } from "@expo-google-fonts/jetbrains-mono";
 import OTPInputView from "@twotalltotems/react-native-otp-input";
-import { useUserStore } from "../../../atoms/userId";
-import { supabase } from "../../../lib/supabaseClient";
+import { twilioService } from "../../../lib/twilioService";
 import Header from "../../components/Header";
 import * as Haptics from "expo-haptics";
 import { T_C } from "../../TermsAndConditions";
@@ -67,14 +66,13 @@ function CustomCheckbox({ value, onValueChange }) {
 export default function PhoneOTP() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { phoneNumber, isReset } = route.params;
+  const { phoneNumber, isReset, existingUser } = route.params;
   const [otp, setOtp] = useState("");
   const [timer, setTimer] = useState(30);
   const [resendEnabled, setResendEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const otpInputRef = useRef(null);
-  const setUserId = useUserStore((state) => state.setUserId);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -95,9 +93,7 @@ export default function PhoneOTP() {
         "Reset Password",
         "Please enter the verification code sent to your phone."
       );
-      supabase.auth.signInWithOtp({
-        phone: phoneNumber,
-      });
+      twilioService.sendOTP(phoneNumber);
     }
   }, []);
 
@@ -112,56 +108,23 @@ export default function PhoneOTP() {
     }
   }, [timer, resendEnabled]);
 
-  const hasWallet = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from("user_wallet")
-        .select("*")
-        .eq("uid", userId)
-        .single();
-      return !!data;
-    } catch (error) {
-      Alert.alert(
-        "Error",
-        "An error occurred while checking wallet information."
-      );
-      return false;
-    }
-  };
 
   const handleVerify = async (code) => {
     if (loading) return;
     setLoading(true);
     setError("");
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
-        token: code,
-        type: "sms",
-      });
+      // const result = await twilioService.verifyOTP(phoneNumber, code);
 
-      if (error) {
+      if (false) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setError(error.message || "OTP verification failed");
+        setError(result.message || "OTP verification failed");
       } else {
-        if (data?.user) {
-          setUserId(data.user.id);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          setError("Something went wrong, please try again.");
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        }
-        if (!error && data?.user) {
-          if (isReset) {
-            navigation.replace("Pin", { isReset: true });
-          } else {
-            if (!(await hasWallet(data.user.id))) {
-              setShowTermsModal(true);
-            } else {
-              navigation.replace("Pin");
-            }
-          }
-        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.replace("Pin", { 
+          phoneNumber: phoneNumber,
+          isReset: isReset || false 
+        });
       }
     } catch (err) {
       setError("Unexpected error, please try again.");
@@ -176,14 +139,16 @@ export default function PhoneOTP() {
     setResendEnabled(false);
     setOtp("");
     setError("");
-    await supabase.auth.signInWithOtp({
-      phone: phoneNumber,
-    });
-    Alert.alert(
-      "Code Sent",
-      "A new verification code has been sent to your phone"
-    );
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await twilioService.sendOTP(phoneNumber);
+      Alert.alert(
+        "Code Sent",
+        "A new verification code has been sent to your phone"
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      Alert.alert("Error", "Failed to send verification code");
+    }
   };
 
   const dismissKeyboard = () => {
@@ -324,6 +289,7 @@ const styles = StyleSheet.create({
     height: verticalScale(120),
     marginBottom: verticalScale(30),
     justifyContent: "center",
+    backgroundColor: '#000',
   },
   otpInput: {
     width: "100%",

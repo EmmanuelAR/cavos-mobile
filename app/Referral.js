@@ -14,12 +14,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
-import { useUserStore } from '../atoms/userId';
-import { useWallet } from '../atoms/wallet';
 import { supabase } from '../lib/supabaseClient';
 import LoggedHeader from './components/LoggedHeader';
 import LoadingModal from './components/LoadingModal';
 import * as Clipboard from 'expo-clipboard';
+import { useCavosWallet } from '../atoms/cavosWallet';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,8 +33,7 @@ export default function Referral() {
     const [isLoading, setIsLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [referralCode, setReferralCode] = useState(null);
-    const wallet = useWallet((state) => state.wallet);
-    const userId = useUserStore((state) => state.userId);
+    const { cavosWallet } = useCavosWallet();
 
     Font.useFonts({
         'Satoshi-Variable': require('../assets/fonts/Satoshi-Variable.ttf'),
@@ -62,7 +60,7 @@ export default function Referral() {
             const { data: existingCode, error: checkError } = await supabase
                 .from('code')
                 .select('*')
-                .eq('uid', userId)
+                .eq('auth0_id', cavosWallet?.user_id)
                 .single();
 
             if (checkError && checkError.code !== 'PGRST116') {
@@ -74,7 +72,7 @@ export default function Referral() {
             } else {
                 const { error: insertError } = await supabase
                     .from('code')
-                    .insert([{ uid: userId, invitation_code: code }]);
+                    .insert([{ auth0_id: cavosWallet?.user_id, invitation_code: code }]);
 
                 if (insertError) {
                     throw insertError;
@@ -107,7 +105,7 @@ export default function Referral() {
             const { data, error } = await supabase
                 .from('code')
                 .select('invitation_code, uses')
-                .eq('uid', userId)
+                .eq('auth0_id', cavosWallet.user_id)
                 .single();
 
             if (error && error.code !== 'PGRST116') {
@@ -185,7 +183,7 @@ export default function Referral() {
 
                     <View style={styles.statCard}>
                         <Text style={styles.statLabel}>ESTIMATED REWARDS</Text>
-                        <Text style={styles.statAmount}>{userRewards.toFixed(2)} USDC</Text>
+                        <Text style={styles.statAmount}>{(userRewards || 0).toFixed(2)} USDC</Text>
                         <Text style={styles.statSubtext}>Pending distribution</Text>
                     </View>
                 </View>
@@ -266,7 +264,7 @@ export default function Referral() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         paddingHorizontal: moderateScale(20),
         paddingTop: Platform.OS === 'android' ? verticalScale(20) : 0,
     },
@@ -295,7 +293,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     poolCard: {
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         borderRadius: moderateScale(16),
         padding: moderateScale(24),
         marginBottom: verticalScale(30),
@@ -426,7 +424,7 @@ const styles = StyleSheet.create({
     },
     codeContainer: {
         flexDirection: 'row',
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         borderRadius: moderateScale(12),
         padding: moderateScale(16),
         borderWidth: 1,

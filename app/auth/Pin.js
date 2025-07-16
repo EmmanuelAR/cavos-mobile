@@ -14,11 +14,10 @@ import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabaseClient';
-import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
-import axios from 'axios';
-import { decryptPin, decryptSecretWithPin, encryptPin, encryptSecretWithPin } from '../../lib/utils';
-import { useWallet } from '../../atoms/wallet';
-import { useUserStore } from '../../atoms/userId';
+import { decryptPin, encryptPin } from '../../lib/utils';
+import { useCavosWallet } from '../../atoms/cavosWallet';
+import { useUserProfile } from '../../atoms/userProfile';
+import { useFaceIdSettings } from '../../atoms/faceIdSettings';
 import Header from '../components/Header';
 import LoadingModal from '../components/LoadingModal';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -32,18 +31,16 @@ const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * fact
 export default function Pin() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { isReset } = route.params;
+    const { isReset, phoneNumber } = route.params;
     const [pin, setPin] = useState('');
     const [error, setError] = useState(false);
-    const [attempts, setAttempts] = useState(0);
-    const userId = useUserStore((state) => state.userId);
-    const setWallet = useWallet((state) => state.setWallet);
-    const [isNewUser, setIsNewUser] = useState(false);
-    const [userData, setUserData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const { cavosWallet } = useCavosWallet();
+    const { userProfile, setUserProfile } = useUserProfile();
+    const { faceIdEnabled, setFaceIdEnabled } = useFaceIdSettings();
     const [hasBiometricHardware, setHasBiometricHardware] = useState(false);
     const [biometricEnrolled, setBiometricEnrolled] = useState(false);
-    const [biometricEnabled, setBiometricEnabled] = useState(false);
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     const [fontsLoaded] = Font.useFonts({
         'Satoshi-Variable': require('../../assets/fonts/Satoshi-Variable.ttf'),
@@ -60,9 +57,9 @@ export default function Pin() {
         async function getAccountInfo() {
             try {
                 const { data, error } = await supabase
-                    .from('user_wallet')
+                    .from('user_profile')
                     .select('*')
-                    .eq('uid', userId);
+                    .eq('auth0_id', cavosWallet.user_id);
 
                 if (error) {
                     console.error('Supabase read error:', error);
@@ -71,25 +68,24 @@ export default function Pin() {
                 }
 
                 if (data.length === 0) {
-                    setIsNewUser(true);
                     Alert.alert("Setup a PIN to create your account");
                 }
                 else {
-                    setUserData(data[0]);
+                    setUserProfile(data[0]);
                 }
             } catch (error) {
                 console.error('Error al obtener el balance:', error);
             }
         }
-
-        if (userId) {
-            getAccountInfo();
+        if (cavosWallet?.user_id) {
+            getAccountInfo()
         }
         if (isReset) {
             Alert.alert('Reset Pin', 'Please enter a new PIN');
         }
-    }, [userId]);
+    }, [cavosWallet, isReset]);
 
+    // Check biometric hardware and enrollment
     useEffect(() => {
         async function checkBiometrics() {
             const compatible = await LocalAuthentication.hasHardwareAsync();
@@ -98,76 +94,44 @@ export default function Pin() {
             setBiometricEnrolled(enrolled);
         }
 
-        if (userId) {
-            checkBiometrics();
-        }
-
-        if (isReset) {
-            Alert.alert('Reset Pin', 'Please enter a new PIN');
-        }
-    }, [userId]);
+        checkBiometrics();
+    }, []);
 
     useEffect(() => {
-        async function maybeAuthenticateWithBiometrics() {
-            if (!userData || !biometricEnrolled || !hasBiometricHardware) return;
-
-            if (userData.face_id_enabled) {
+        if (!userProfile?.hashed_pin || !biometricEnrolled || !hasBiometricHardware || isReset || !faceIdEnabled) {
+            setIsAuthenticating(false);
+            return;
+        }
+        setIsAuthenticating(true);
+        (async () => {
+            try {
                 const result = await LocalAuthentication.authenticateAsync({
                     promptMessage: 'Authenticate with Face ID',
                     fallbackLabel: 'Enter PIN instead',
                 });
-
+                setIsAuthenticating(false);
                 if (result.success) {
-                    setWallet(userData);
-                    navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'BottomMenu' }],
-                    });
+                    navigation.replace('BottomMenu');
                 }
-            } else {
-                Alert.alert(
-                    'Enable Face ID',
-                    'Would you like to enable Face ID for future logins?',
-                    [
-                        { text: 'No', style: 'cancel' },
-                        {
-                            text: 'Yes',
-                            onPress: async () => {
-                                const authResult = await LocalAuthentication.authenticateAsync({
-                                    promptMessage: 'Authenticate to enable Face ID',
-                                });
-                                if (authResult.success) {
-                                    await supabase
-                                        .from('user_wallet')
-                                        .update({ face_id_enabled: true })
-                                        .eq('uid', userId);
-
-                                    setUserData((prev) => ({ ...prev, face_id_enabled: true }));
-                                    setWallet(userData);
-                                    navigation.reset({
-                                        index: 0,
-                                        routes: [{ name: 'BottomMenu' }],
-                                    });
-                                }
-                            },
-                        },
-                    ]
-                );
+            } catch (error) {
+                setIsAuthenticating(false);
+                console.error('Face ID authentication error:', error);
             }
+        })();
+    }, [userProfile?.hashed_pin, biometricEnrolled, hasBiometricHardware, isReset, faceIdEnabled]);
+
+    useEffect(() => {
+        if (pin.length === 6) {
+            validatePin(pin);
         }
-
-        maybeAuthenticateWithBiometrics();
-    }, [userData, biometricEnrolled]);
-
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pin]);
 
 
     const handleNumberPress = (number) => {
         if (pin.length < 6) {
             setPin(pin + number);
             setError(false);
-        }
-        if (pin.length + 1 >= 6) {
-            validatePin(pin + number);
         }
     };
 
@@ -176,158 +140,115 @@ export default function Pin() {
     };
 
     const handleForgotPin = async () => {
-        const phoneNumber = (await supabase.auth.getUser()).data.user.phone;
-        Alert.alert(
-            'Forgot PIN',
-            'Would you like to reset your PIN? This will require OTP verification.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Reset PIN',
-                    onPress: () => navigation.navigate('PhoneOTP', { phoneNumber: phoneNumber, isReset: true }),
-                }
-            ]
-        );
-    };
-
-    const createWallet = async (pinP) => {
-        try {
-            const response = await axios.post(
-                CAVOS_CORE_API + 'v1/wallet/create',
-                { pin: pinP },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
-                    },
-                }
+        if (phoneNumber) {
+            Alert.alert(
+                'Forgot PIN',
+                'Would you like to reset your PIN? This will require OTP verification.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Reset PIN',
+                        onPress: () => navigation.replace('PhoneOTP', { phoneNumber: phoneNumber, isReset: true }),
+                    }
+                ]
             );
-            return response.data;
-        } catch (err) {
-            console.error('Error creating wallet:', err);
-            return null;
         }
     };
 
-    const handleResetPin = async (pinP) => {
-        const newhashedPin = encryptPin(pinP);
-        const oldPk = decryptSecretWithPin(userData.private_key, decryptPin(userData.pin));
-        const newHashedPk = encryptSecretWithPin(pinP, oldPk);
-        setUserData(null);
-        setWallet(null);
-        const { error: updateError } = await supabase
-            .from('user_wallet')
-            .update({ pin: newhashedPin, private_key: newHashedPk })
-            .eq('uid', userId);
-        if (updateError) {
-            console.error('Update error:', updateError);
-            Alert.alert('Error updating PIN in database');
-            return;
-        }
-        const { data, error } = await supabase
-            .from('user_wallet')
-            .select('*')
-            .eq('uid', userId);
+    const createOrUpdateUserProfile = async (hashedPin) => {
+        try {
+            if (cavosWallet?.user_id) {
+                const profileData = {
+                    auth0_id: cavosWallet.user_id,
+                    address: cavosWallet.address,
+                    phone_number: phoneNumber,
+                    hashed_pin: hashedPin,
+                };
 
-        if (error) {
-            console.error('Supabase read error:', error);
-            Alert.alert('Error reading from database');
-            return;
-        }
-        setWallet(data[0]);
-        setUserData(data[0]);
-        setPin('');
-        Alert.alert("PIN reset successful!", "Input your new PIN again to sign in.", [
-            {
-                text: "Continue",
-                onPress: () => navigation.navigate('Pin', { isReset: false })
+                const { data, error } = await supabase
+                    .from('user_profile')
+                    .upsert(profileData)
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error('Error creating/updating user profile:', error);
+                    throw error;
+                }
+                setUserProfile(data);
+                return data;
             }
-        ]);
-    }
+        } catch (error) {
+            console.error('Error in createOrUpdateUserProfile:', error);
+            throw error;
+        }
+    };
+
+
 
     const validatePin = async (pinP) => {
-        if (isReset && !isNewUser) {
-            handleResetPin(pinP);
-            return;
-        }
         const hashedPin = encryptPin(pinP);
+        setIsLoading(true);
         try {
-            if (isNewUser) {
-                setIsLoading(true);
-                const wallet_details = await createWallet(hashedPin);
-
-                if (!wallet_details || !wallet_details.address) {
-                    Alert.alert('Wallet creation failed. Please try again.');
-                    return;
-                }
-
-                const { error: insertError } = await supabase
-                    .from('user_wallet')
-                    .insert([
-                        {
-                            uid: userId,
-                            address: wallet_details.address,
-                            public_key: wallet_details.public_key,
-                            private_key: wallet_details.private_key,
-                            pin: hashedPin,
-                            phone: (await supabase.auth.getUser()).data.user.phone,
-                        },
-                    ]);
-
-                if (insertError) {
-                    console.error('Insert error:', insertError);
-                    Alert.alert('Error saving wallet to database');
-                    return;
-                }
-
-                const { error: txError } = await supabase
-                    .from('transaction')
-                    .insert([
-                        {
-                            uid: userId,
-                            type: "Account Creation",
-                            amount: 0.0,
-                        },
-                    ]);
-
-                if (txError) {
-                    console.error('Insert error:', txError);
-                    Alert.alert('Error saving transaction to database');
-                    return;
-                }
-
-                setWallet({
-                    uid: userId,
-                    address: wallet_details.address,
-                    public_key: wallet_details.public_key,
-                    private_key: wallet_details.private_key,
-                    pin: hashedPin,
-                    deployed: false,
-                });
-
-                Alert.alert("Account setup successful!", "", [
+            if (isReset) {
+                // Update existing profile with new PIN
+                await createOrUpdateUserProfile(hashedPin);
+                Alert.alert("PIN reset successful!", "Your PIN has been updated.", [
                     {
                         text: "Continue",
-                        onPress: () => navigation.navigate('BottomMenu')
+                        onPress: () => navigation.replace('BottomMenu')
                     }
                 ]);
-            } else {
-                if (decryptPin(userData.pin) !== pinP) {
+            } else if (userProfile) {
+                // Verify existing PIN
+                if (decryptPin(userProfile.hashed_pin) === pinP) {
+                    navigation.replace('BottomMenu');
+                } else {
                     setPin('');
-                    Alert.alert("Wrong pin!");
+                    setError(true);
+                    Alert.alert("Wrong PIN!", "Please try again.");
                 }
-                else {
-                    setWallet(userData);
-                    navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'BottomMenu' }],
-                    });
+            } else {
+                // Create new profile with PIN
+                await createOrUpdateUserProfile(hashedPin);
+
+                // Ask if user wants to enable Face ID
+                if (hasBiometricHardware && biometricEnrolled) {
+                    Alert.alert(
+                        "PIN setup successful!",
+                        "Would you like to enable Face ID for future logins?",
+                        [
+                            {
+                                text: "No",
+                                onPress: () => navigation.replace('BottomMenu')
+                            },
+                            {
+                                text: "Yes",
+                                onPress: async () => {
+                                    const authResult = await LocalAuthentication.authenticateAsync({
+                                        promptMessage: 'Authenticate to enable Face ID',
+                                    });
+                                    if (authResult.success) {
+                                        setFaceIdEnabled(true);
+                                    }
+                                    navigation.replace('BottomMenu');
+                                },
+                            },
+                        ]
+                    );
+                } else {
+                    Alert.alert("PIN setup successful!", "Your account has been created.", [
+                        {
+                            text: "Continue",
+                            onPress: () => navigation.replace('BottomMenu')
+                        }
+                    ]);
                 }
             }
         } catch (err) {
             console.error('Unexpected error in validatePin:', err);
-        }
-        finally {
+            Alert.alert("Error", "An error occurred. Please try again.");
+        } finally {
             setIsLoading(false);
         }
     };
@@ -335,15 +256,17 @@ export default function Pin() {
     return (
         <SafeAreaView style={styles.container}>
             {/* Loading Indicator */}
-            {isLoading && (
+            {(isLoading || isAuthenticating) && (
                 <LoadingModal />
             )}
             {/* Header with Back Button */}
             <Header showBackButton={true} />
 
             {/* PIN Content */}
-            <View style={styles.content}>
-                <Text style={styles.title}>Input Your PIN</Text>
+            <View style={styles.content} pointerEvents={isAuthenticating ? 'none' : 'auto'}>
+                <Text style={styles.title}>
+                    {isReset ? 'Reset Your PIN' : userProfile ? 'Enter Your PIN' : 'Create Your PIN'}
+                </Text>
 
                 {error && (
                     <Text style={styles.errorText}>Authentication Failed</Text>
@@ -364,13 +287,14 @@ export default function Pin() {
                 </View>
 
                 {/* Number Pad */}
-                <View style={styles.numberPad}>
+                <View style={styles.numberPad} pointerEvents={isAuthenticating ? 'none' : 'auto'}>
                     <View style={styles.numberRow}>
                         {[1, 2, 3].map((num) => (
                             <TouchableOpacity
                                 key={num}
                                 style={styles.numberButton}
                                 onPress={() => handleNumberPress(num.toString())}
+                                disabled={isAuthenticating}
                             >
                                 <Text style={styles.numberText}>{num}</Text>
                             </TouchableOpacity>
@@ -382,6 +306,7 @@ export default function Pin() {
                                 key={num}
                                 style={styles.numberButton}
                                 onPress={() => handleNumberPress(num.toString())}
+                                disabled={isAuthenticating}
                             >
                                 <Text style={styles.numberText}>{num}</Text>
                             </TouchableOpacity>
@@ -393,24 +318,64 @@ export default function Pin() {
                                 key={num}
                                 style={styles.numberButton}
                                 onPress={() => handleNumberPress(num.toString())}
+                                disabled={isAuthenticating}
                             >
                                 <Text style={styles.numberText}>{num}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
                     <View style={styles.numberRow}>
-                        <TouchableOpacity style={styles.emptyButton} disabled>
+                        <TouchableOpacity
+                            style={styles.emptyButton}
+                            onPress={async () => {
+                                if (faceIdEnabled) {
+                                    Alert.alert(
+                                        "Disable Face ID",
+                                        "Are you sure you want to disable Face ID?",
+                                        [
+                                            { text: "Cancel", style: "cancel" },
+                                            {
+                                                text: "Disable",
+                                                onPress: () => setFaceIdEnabled(false),
+                                            },
+                                        ]
+                                    );
+                                } else {
+                                    Alert.alert(
+                                        "Enable Face ID",
+                                        "Would you like to enable Face ID for future logins?",
+                                        [
+                                            { text: "No", style: "cancel" },
+                                            {
+                                                text: "Yes",
+                                                onPress: async () => {
+                                                    const authResult = await LocalAuthentication.authenticateAsync({
+                                                        promptMessage: 'Authenticate to enable Face ID',
+                                                    });
+                                                    if (authResult.success) {
+                                                        setFaceIdEnabled(true);
+                                                    }
+                                                },
+                                            },
+                                        ]
+                                    );
+                                }
+                            }}
+                            disabled={isAuthenticating || !userProfile}
+                        >
                             <MaterialIcons name="fingerprint" size={moderateScale(24)} color="#888" />
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.numberButton}
                             onPress={() => handleNumberPress('0')}
+                            disabled={isAuthenticating}
                         >
                             <Text style={styles.numberText}>0</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.emptyButton}
                             onPress={handleDelete}
+                            disabled={isAuthenticating}
                         >
                             <MaterialIcons name="backspace" size={moderateScale(24)} color="#EAE5DC" />
                         </TouchableOpacity>
@@ -421,6 +386,7 @@ export default function Pin() {
                 <TouchableOpacity
                     style={styles.forgotPinButton}
                     onPress={handleForgotPin}
+                    disabled={isAuthenticating}
                 >
                     <Text style={styles.forgotPinText}>Forgot your PIN?</Text>
                 </TouchableOpacity>
@@ -432,7 +398,7 @@ export default function Pin() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         paddingTop: Platform.OS === 'android' ? verticalScale(20) : 0,
     },
     content: {
@@ -474,6 +440,7 @@ const styles = StyleSheet.create({
     numberPad: {
         width: '100%',
         maxWidth: moderateScale(300),
+        backgroundColor: '#000',
     },
     numberRow: {
         flexDirection: 'row',
@@ -506,5 +473,17 @@ const styles = StyleSheet.create({
     forgotPinText: {
         color: '#888',
         fontSize: moderateScale(14),
+    },
+    faceIdButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: moderateScale(10),
+        marginBottom: verticalScale(20),
+    },
+    faceIdText: {
+        color: '#EAE5DC',
+        fontSize: moderateScale(14),
+        marginLeft: moderateScale(8),
     },
 });

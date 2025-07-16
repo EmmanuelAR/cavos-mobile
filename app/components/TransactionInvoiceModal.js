@@ -63,7 +63,7 @@ export function TransactionInvoiceModal({ visible, onClose, txDetails }) {
                                             <Text style={styles.tokenName}>{transfer.token}</Text>
                                             <Text style={[
                                                 styles.amount,
-                                                transfer.amount.startsWith('-') ? styles.negativeAmount : styles.positiveAmount
+                                                transfer.amount?.startsWith('-') ? styles.negativeAmount : styles.positiveAmount
                                             ]}>
                                                 {transfer.amount}
                                             </Text>

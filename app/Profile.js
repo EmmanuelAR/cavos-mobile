@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useWallet } from '../atoms/wallet';
 import { supabase } from '../lib/supabaseClient';
-import { useUserStore } from '../atoms/userId';
 import { useNavigation } from '@react-navigation/native';
+import { useCavosWallet } from '../atoms/cavosWallet';
+import { useFaceIdSettings } from '../atoms/faceIdSettings';
+import { useUserProfile } from '../atoms/userProfile';
 
 const { width, height } = Dimensions.get('window');
 const scale = size => width / 375 * size;
@@ -25,10 +26,9 @@ const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * fact
 
 export default function Profile() {
     const navigation = useNavigation();
-    const wallet = useWallet((state) => state.wallet);
-    const setWallet = useWallet((state) => state.setWallet);
-    const userId = useUserStore((state) => state.userId);
-    const setUserId = useUserStore((state) => state.setUserId);
+    const { cavosWallet, setCavosWallet } = useCavosWallet();
+    const { setFaceIdEnabled } = useFaceIdSettings();
+    const { userProfile, setUserProfile } = useUserProfile();
     const [username, setUsername] = useState('');
     const [savedUsername, setSavedUsername] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -37,23 +37,23 @@ export default function Profile() {
     useEffect(() => {
         // Fetch username from supabase
         const fetchUsername = async () => {
-            if (!userId) return;
+            if (!cavosWallet) return;
             const { data, error } = await supabase
-                .from('user_wallet')
-                .select('user_name')
-                .eq('uid', userId)
+                .from('user_profile')
+                .select('username')
+                .eq('auth0_id', cavosWallet.user_id)
                 .single();
             if (error) {
                 console.error('Error fetching username:', error);
                 return;
             }
-            if (data && data.user_name) {
-                setUsername(data.user_name);
-                setSavedUsername(data.user_name);
+            if (data && data.username) {
+                setUsername(data.username);
+                setSavedUsername(data.username);
             }
         };
         fetchUsername();
-    }, [userId]);
+    }, [cavosWallet]);
 
     const handleSaveUsername = async () => {
         if (!username || username.trim().length < 3) {
@@ -62,11 +62,12 @@ export default function Profile() {
         }
         setIsSaving(true);
         const { error } = await supabase
-            .from('user_wallet')
-            .update({ user_name: username.trim() })
-            .eq('uid', userId);
+            .from('user_profile')
+            .update({ username: username.trim() })
+            .eq('auth0_id', cavosWallet.user_id);
         setIsSaving(false);
         if (error) {
+            console.error(error);
             Alert.alert('Error', 'Could not save username.');
             return;
         }
@@ -75,19 +76,16 @@ export default function Profile() {
     };
 
     const handleSignOut = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            Alert.alert('Error', 'Could not sign out.');
-            return;
-        }
-        setWallet(null);
-        setUserId(null);
+        setCavosWallet(null);
+        setFaceIdEnabled(null);
+        setUserProfile(null);
+        setCavosWallet(null);
         navigation.navigate('Login');
     };
 
-    const walletAddress = wallet?.address.startsWith('0x')
-        ? '0x' + wallet?.address.slice(2).padStart(64, '0')
-        : '0x' + wallet?.address.padStart(64, '0');
+    const walletAddress = cavosWallet?.address?.startsWith('0x')
+        ? '0x' + cavosWallet?.address.slice(2).padStart(64, '0')
+        : '0x' + cavosWallet?.address?.padStart(64, '0') || '';
 
     const copyToClipboard = (text) => {
         Clipboard.setStringAsync(walletAddress);
@@ -123,21 +121,20 @@ export default function Profile() {
                         const { error: txError } = await supabase
                             .from('transaction')
                             .delete()
-                            .eq('uid', userId);
+                            .eq('auth0_id', cavosWallet.user_id);
                         if (txError) {
                             Alert.alert('Error', 'Could not delete transactions.');
                             return;
                         }
                         const { error: walletError } = await supabase
-                            .from('user_wallet')
+                            .from('user_profile')
                             .delete()
-                            .eq('uid', userId);
+                            .eq('auth0_id', cavosWallet.user_id);
                         if (walletError) {
                             Alert.alert('Error', 'Could not delete wallet data.');
                             return;
                         }
-                        setWallet(null); // Limpia el estado de la billetera
-                        setUserId(null);
+                        handleSignOut();
                         navigation.navigate('Login');
                         Alert.alert('Account Deleted', 'Your account has been successfully deleted.');
                     }
@@ -214,7 +211,7 @@ export default function Profile() {
                             <View style={styles.infoRow}>
                                 <Text style={styles.infoLabel}>Phone Number</Text>
                                 <Text style={styles.infoValue}>
-                                    {wallet?.phone || 'Not set'}
+                                    {userProfile?.phone_number || 'Not set'}
                                 </Text>
                             </View>
                         </View>
@@ -230,18 +227,18 @@ export default function Profile() {
                             <View style={styles.infoRow}>
                                 <View style={styles.addressHeader}>
                                     <Text style={styles.infoLabel}>Starknet Address</Text>
-                                    {wallet?.address && (
+                                    {cavosWallet?.address && (
                                         <TouchableOpacity
                                             style={styles.copyButton}
-                                            onPress={() => copyToClipboard(wallet.address)}
+                                            onPress={() => copyToClipboard(cavosWallet.address)}
                                         >
                                             <Icon name="copy-outline" size={16} color="#666" />
                                         </TouchableOpacity>
                                     )}
                                 </View>
                                 <Text style={styles.addressValue}>
-                                    {wallet?.address
-                                        ? `${wallet.address.slice(0, 8)}...${wallet.address.slice(-8)}`
+                                    {cavosWallet?.address
+                                        ? `${cavosWallet.address.slice(0, 8)}...${cavosWallet.address.slice(-8)}`
                                         : 'Not connected'}
                                 </Text>
                             </View>
@@ -282,7 +279,7 @@ export default function Profile() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
     },
     scrollView: {
         flex: 1,
@@ -305,7 +302,7 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 10,
-        backgroundColor: '#1A1A17',
+        backgroundColor: '#000',
         borderWidth: 3,
         borderColor: '#2A2A27',
         alignItems: 'center',
@@ -318,7 +315,7 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#EAE5DC',
+        backgroundColor: '#000',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
@@ -351,7 +348,7 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1A1A17',
+        backgroundColor: '#000',
         borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#2A2A27',
@@ -385,7 +382,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     infoCard: {
-        backgroundColor: '#1A1A17',
+        backgroundColor: '#000',
         borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#2A2A27',
@@ -422,7 +419,7 @@ const styles = StyleSheet.create({
         fontFamily: 'JetBrainsMono_400Regular',
     },
     actionsContainer: {
-        backgroundColor: '#1A1A17',
+        backgroundColor: '#000',
         borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#2A2A27',

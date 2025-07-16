@@ -15,12 +15,13 @@ import { useNavigation } from '@react-navigation/native';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import Header from './components/Header';
-import { useWallet } from '../atoms/wallet';
+import { useCavosWallet } from '../atoms/cavosWallet';
 import { getWalletBalance } from '../lib/utils';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import { supabase } from '../lib/supabaseClient';
 import LoadingModal from './components/LoadingModal';
+import { formatAmount } from 'cavos-service-sdk';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,7 +34,7 @@ export default function Invest() {
     const [investmentAmount, setInvestmentAmount] = useState('');
     const [selectedPool, setSelectedPool] = useState('Vesu Pool');
     const [balance, setBalance] = useState(0);
-    const wallet = useWallet((state) => state.wallet);
+    const cavosWallet = useCavosWallet((state) => state.cavosWallet);
     const [isLoading, setIsLoading] = useState(false);
 
     Font.useFonts({
@@ -50,17 +51,17 @@ export default function Invest() {
     useEffect(() => {
         async function getAccountInfo() {
             try {
-                const newBalance = await getWalletBalance(wallet.address);
+                const newBalance = await getWalletBalance(cavosWallet.address);
                 setBalance(newBalance.balance);
             } catch (error) {
                 console.error('Error al obtener el balance:', error);
             }
         }
 
-        if (wallet) {
+        if (cavosWallet) {
             getAccountInfo();
         }
-    }, [wallet]);
+    }, [cavosWallet]);
 
     const handleBack = () => {
         navigation.goBack();
@@ -74,26 +75,27 @@ export default function Invest() {
 
     const createPosition = async () => {
         try {
-            const response = await axios.post(
-                CAVOS_CORE_API + 'v1/vesu/position/usd/create',
+            let calls = [
                 {
-                    amount: investmentAmount,
-                    address: wallet.address,
-                    publicKey: wallet.public_key,
-                    hashedPk: wallet.private_key,
-                    hashedPin: wallet.pin,
-                    deploymentData: wallet.deployment_data,
-                    deployed: wallet.deployed,
+                    contractAddress:
+                        '0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8',
+                    entrypoint: 'approve',
+                    calldata: [
+                        '0x048f4e75c12ca9d35d6172b1cb5f1f70b094888003f9c94fe19f12a67947fd6d',
+                        await formatAmount(investmentAmount, 6),
+                    ],
                 },
                 {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
-                    },
-                }
-            );
-            return response.data;
+                    contractAddress:
+                        '0x048f4e75c12ca9d35d6172b1cb5f1f70b094888003f9c94fe19f12a67947fd6d',
+                    entrypoint: 'deposit',
+                    calldata: [await formatAmount(investmentAmount, 6), cavosWallet.address],
+                },
+            ];
+            const tx = await cavosWallet.executeCalls(calls);
+            return tx;
         } catch (err) {
+            console.log(err);
             Alert.alert("An error ocurred while creating position, try again.");
             setIsLoading(false);
         }
@@ -110,7 +112,6 @@ export default function Invest() {
             return;
         }
 
-        // In a real app, this would call your investment API
         Alert.alert(
             'Confirm Investment',
             `Invest $${investmentAmount} in ${selectedPool}?`,
@@ -121,8 +122,9 @@ export default function Invest() {
                     onPress: async () => {
                         setIsLoading(true);
                         const positionTx = await createPosition();
-                        if (positionTx.result == null) {
-                            Alert.alert('Error creating position');
+                        if (positionTx.error) {
+                            Alert.alert('Something went wrong', 'An error ocurred while sending your funds, please try again.');
+                            setIsLoading(false);
                             return;
                         }
 
@@ -130,10 +132,10 @@ export default function Invest() {
                             .from('transaction')
                             .insert([
                                 {
-                                    uid: wallet.uid,
+                                    auth0_id: cavosWallet.user_id,
                                     type: "Invest",
                                     amount: investmentAmount,
-                                    tx_hash: positionTx.result,
+                                    tx_hash: positionTx,
                                 },
                             ]);
 
@@ -169,7 +171,7 @@ export default function Invest() {
                 {/* Balance Card */}
                 <View style={styles.balanceCard}>
                     <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
-                    <Text style={styles.balanceAmount}>{balance.toFixed(2)} USD</Text>
+                    <Text style={styles.balanceAmount}>{(balance || 0).toFixed(2)} USD</Text>
                 </View>
 
                 {/* Investment Input */}
@@ -201,14 +203,8 @@ export default function Invest() {
                     <View style={styles.summaryCard}>
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Investment Amount</Text>
-                            <Text style={styles.summaryValue}>${parseFloat(investmentAmount).toFixed(2)}</Text>
+                            <Text style={styles.summaryValue}>${parseFloat(investmentAmount || 0).toFixed(2)}</Text>
                         </View>
-                        {/* <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Estimated APY</Text>
-                            <Text style={styles.summaryValue}>
-                                {investmentPools.find(p => p.name === selectedPool)?.apy}
-                            </Text>
-                        </View> */}
                     </View>
                 )}
 
@@ -237,7 +233,7 @@ export default function Invest() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#11110E',
+        backgroundColor: '#000',
         paddingTop: Platform.OS === 'android' ? verticalScale(20) : 0,
     },
     scrollContent: {

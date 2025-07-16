@@ -223,5 +223,3 @@ For support and questions:
   - Improved UI/UX
 
 ---
-
-Built with <3 by the Cavos Team 

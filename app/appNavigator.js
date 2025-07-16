@@ -23,49 +23,24 @@ import Profile from "./Profile";
 import Referral from "./Referral";
 import CardWaitlist from "./CardWaitlist";
 import Search from "./contacts/Search";
+import { useCavosWallet } from "../atoms/cavosWallet";
+import { useUserProfile } from "../atoms/userProfile";
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const [initialRoute, setInitialRoute] = useState(null);
+  const {cavosWallet} = useCavosWallet();
+  const {userProfile} = useUserProfile()
 
-  const hasWallet = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from("user_wallet")
-        .select("*")
-        .eq("uid", userId)
-        .single();
-      if (error) {
-        console.error("Error fetching wallet info:", error);
-        return false;
-      } else {
-        if (data) {
-          return true;
-        } else {
-          return false;
-        }
-      }
-    } catch (error) {
-      console.error("Error checking wallet:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while checking wallet information."
-      );
-      return false;
-    }
+  const hasWallet = () => {
+    return cavosWallet !== null
   };
 
   useEffect(() => {
     const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session) {
-        const userId = session.user.id;
-        const hasUserWallet = await hasWallet(userId);
-        if (hasUserWallet) {
+      if (cavosWallet !== null) {
+        if (userProfile !== null) {
           setInitialRoute("Pin");
         } else {
           setInitialRoute("Invitation");
@@ -85,7 +60,7 @@ export default function AppNavigator() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: "#11110E",
+          backgroundColor: '#000',
         }}
       >
         <ActivityIndicator size="large" color="#EAE5DC" />
