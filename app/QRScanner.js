@@ -36,7 +36,7 @@ export default function QRScanner({ onQRCodeScanned, onClose }) {
       const parsedData = JSON.parse(data);
       if (
         parsedData &&
-        parsedData.address.startsWith("0x") &&
+        parsedData.address?.startsWith("0x") &&
         parsedData.address.length === 66
       ) {
         onQRCodeScanned(parsedData.address, parsedData.amount);

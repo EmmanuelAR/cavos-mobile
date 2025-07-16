@@ -337,7 +337,7 @@ export default function CardWaitlist() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         paddingHorizontal: moderateScale(20),
         paddingTop: Platform.OS === 'android' ? verticalScale(20) : 0,
     },
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     },
     input: {
         width: '100%',
-        backgroundColor: '#1A1A17',
+        backgroundColor: '#000',
         borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#333',

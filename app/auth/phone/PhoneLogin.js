@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,10 +14,13 @@ import {
   FlatList,
   TouchableWithoutFeedback,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
+import { twilioService } from '../../../lib/twilioService';
+import { useCavosWallet } from '../../../atoms/cavosWallet';
 import { supabase } from '../../../lib/supabaseClient';
 import Header from '../../components/Header';
 import * as Haptics from 'expo-haptics';
@@ -30,11 +33,14 @@ const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * fact
 
 export default function PhoneLogin() {
   const navigation = useNavigation();
+  const { cavosWallet } = useCavosWallet();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [callingCode, setCallingCode] = useState({ country: 'Costa Rica', code: '506' });
   const [showModal, setShowModal] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [existingPhone, setExistingPhone] = useState(null);
   const phoneInputRef = useRef(null);
 
   const [fontsLoaded] = Font.useFonts({
@@ -45,10 +51,46 @@ export default function PhoneLogin() {
     JetBrainsMono_400Regular,
   });
 
-  if (!fontsLoaded || !googleFontsLoaded) return null;
-
   Text.defaultProps = Text.defaultProps || {};
   Text.defaultProps.style = { fontFamily: 'Satoshi-Variable' };
+
+  // Check if user already has a phone number in profile
+  useEffect(() => {
+    const checkExistingProfile = async () => {
+      if (cavosWallet?.user_id) {
+        try {
+          const { data, error } = await supabase
+            .from('user_profile')
+            .select('phone_number')
+            .eq('auth0_id', cavosWallet.user_id)
+            .single();
+
+          if (data?.phone_number) {
+            setExistingPhone(data.phone_number);
+            try {
+              // await twilioService.sendOTP(data.phone_number);
+              navigation.replace('PhoneOTP', { 
+                phoneNumber: data.phone_number,
+                existingUser: true 
+              });
+            } catch (error) {
+              console.error('Error sending OTP to existing user:', error);
+              setLoading(false);
+            }
+          } else {
+            setLoading(false);
+          }
+        } catch (error) {
+          console.error('Error checking user profile:', error);
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    checkExistingProfile();
+  }, [cavosWallet]);
 
   const handleContinue = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -58,11 +100,15 @@ export default function PhoneLogin() {
     }
     setError('');
     const fullPhone = `+${callingCode.code}${phoneNumber}`;
-    const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone });
-    if (error) {
+    
+    try {
+      //await twilioService.sendOTP(fullPhone);
+      navigation.replace('PhoneOTP', { 
+        phoneNumber: fullPhone,
+        existingUser: false 
+      });
+    } catch (error) {
       Alert.alert("Something went wrong", error.message);
-    } else {
-      navigation.replace('PhoneOTP', { phoneNumber: fullPhone });
     }
   };
 
@@ -201,8 +247,18 @@ export default function PhoneLogin() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000',
     paddingTop: Platform.OS === 'android' ? verticalScale(20) : 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#EAE5DC',
+    fontSize: moderateScale(16),
+    marginTop: verticalScale(20),
   },
   content: {
     flex: 1,
@@ -224,7 +280,7 @@ const styles = StyleSheet.create({
   },
   phoneInputContainer: {
     flexDirection: 'row',
-    backgroundColor: '#111',
+    backgroundColor: '#000',
     borderRadius: moderateScale(10),
     padding: moderateScale(15),
     marginBottom: verticalScale(10),

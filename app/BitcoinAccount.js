@@ -15,7 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
-import { useWallet } from '../atoms/wallet';
+import { useCavosWallet } from '../atoms/cavosWallet';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -36,7 +36,7 @@ export default function BitcoinAccount() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showHeader, setShowHeader] = useState(true);
     const [poolId, setPoolId] = useState(0);
-    const wallet = useWallet((state) => state.wallet);
+    const cavosWallet = useCavosWallet((state) => state.cavosWallet);
     const navigation = useNavigation();
     const scrollViewRef = useRef(null);
 
@@ -83,7 +83,7 @@ export default function BitcoinAccount() {
             setIsLoading(true);
             const balanceResponse = await axios.post(
                 CAVOS_CORE_API + "v1/wallet/btc/balance",
-                { address: wallet.address },
+                { address: cavosWallet.address },
                 {
                     headers: {
                         'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ export default function BitcoinAccount() {
             const investmentResponse = await axios.post(
                 CAVOS_CORE_API + 'v1/vesu/positions',
                 {
-                    address: wallet.address,
+                    address: cavosWallet.address,
                     pool: "Genesis",
                 },
                 {
@@ -132,10 +132,10 @@ export default function BitcoinAccount() {
     };
 
     useEffect(() => {
-        if (wallet) {
+        if (cavosWallet) {
             fetchBitcoinData();
         }
-    }, [wallet]);
+    }, [cavosWallet]);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
@@ -172,9 +172,9 @@ export default function BitcoinAccount() {
                 const response = await axios.post(
                     CAVOS_CORE_API + 'v1/vesu/position/btc/withdraw',
                     {
-                        address: wallet.address,
-                        hashedPk: wallet.private_key,
-                        hashedPin: wallet.pin,
+                        address: cavosWallet.address,
+                        hashedPk: cavosWallet.private_key,
+                        hashedPin: cavosWallet.pin,
                         poolId: poolId,
                     },
                     {
@@ -192,7 +192,7 @@ export default function BitcoinAccount() {
                         .from('transaction')
                         .insert([
                             {
-                                uid: wallet.uid,
+                                auth0_id: cavosWallet.user_id,
                                 type: "Close Investment",
                                 amount: response.data.amount,
                                 tx_hash: response.data.result,
@@ -234,14 +234,15 @@ export default function BitcoinAccount() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, {backgroundColor: '#000'}]}>
             {isLoading && <LoadingModal />}
 
             {showHeader && <LoggedHeader />}
 
             <ScrollView
                 ref={scrollViewRef}
-                style={styles.scrollView}
+                style={[styles.scrollView, {backgroundColor: '#000'}]}
+                contentContainerStyle={{paddingBottom: 40}}
                 showsVerticalScrollIndicator={false}
                 scrollEventThrottle={16}
                 refreshControl={
@@ -282,7 +283,7 @@ export default function BitcoinAccount() {
                     <View style={styles.balanceSection}>
                         <Text style={styles.balanceLabel}>YOUR BTC BALANCE</Text>
                         <Text style={styles.balanceValue}>
-                            {btcBalance.toFixed(6)}
+                            {(btcBalance || 0).toFixed(6)}
                         </Text>
                         <Text style={styles.balanceCurrency}>BTC</Text>
                     </View>
@@ -294,7 +295,7 @@ export default function BitcoinAccount() {
                                 <Icon name="trending-up" size={moderateScale(20)} color="#EAE5DC" />
                             </View>
                             <Text style={styles.statLabel}>Total Invested</Text>
-                            <Text style={styles.statValue}>{investedBtc.toFixed(6)} BTC</Text>
+                            <Text style={styles.statValue}>{(investedBtc || 0).toFixed(6)} BTC</Text>
                         </View>
 
                         <View style={styles.statItem}>
@@ -302,7 +303,7 @@ export default function BitcoinAccount() {
                                 <Icon name="stats-chart" size={moderateScale(20)} color="#EAE5DC" />
                             </View>
                             <Text style={styles.statLabel}>Current APY</Text>
-                            <Text style={styles.statValue}>{apy.toFixed(2)}%</Text>
+                            <Text style={styles.statValue}>{(apy || 0).toFixed(2)}%</Text>
                         </View>
                     </View>
                 </Animated.View>
@@ -320,7 +321,7 @@ export default function BitcoinAccount() {
                     {/* Primary Action - Invest */}
                     <TouchableOpacity
                         style={styles.primaryButton}
-                        onPress={goToInvest}
+                        onPress={() => Alert.alert('This feature is under development')}
                         activeOpacity={0.8}
                     >
                         <View style={styles.buttonContent}>
@@ -352,7 +353,7 @@ export default function BitcoinAccount() {
 
                         <TouchableOpacity
                             style={styles.secondaryButton}
-                            onPress={handleCloseInvestment}
+                            onPress={() => Alert.alert('This feature is under development')}
                             activeOpacity={0.7}
                         >
                             <Icon name="close-circle-outline" size={moderateScale(18)} color="#EAE5DC" />

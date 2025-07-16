@@ -14,12 +14,13 @@ import {
     Alert,
     TouchableWithoutFeedback,
     Animated,
+    ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabaseClient';
 import LoggedHeader from '../components/LoggedHeader';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { useWallet } from '../../atoms/wallet';
+import { useCavosWallet } from '../../atoms/cavosWallet';
 
 const { width, height } = Dimensions.get('window');
 const scale = size => width / 375 * size;
@@ -31,7 +32,7 @@ export default function Search() {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    const wallet = useWallet((state) => state.wallet);
+    const { cavosWallet } = useCavosWallet();
     const navigation = useNavigation();
 
     // Animaciones
@@ -62,13 +63,13 @@ export default function Search() {
                 setLoading(true);
                 try {
                     const { data, error } = await supabase
-                        .from('user_wallet')
-                        .select('user_name, address')
-                        .not('user_name', 'is', null)
+                        .from('user_profile')
+                        .select('username, address')
+                        .not('username', 'is', null)
                         .limit(100);
 
                     if (!error) {
-                        const resultsWithWallet = data.filter(user => user.address !== wallet?.address);
+                        const resultsWithWallet = data.filter(user => user.address !== cavosWallet?.address);
                         setResults(resultsWithWallet || []);
                         setHasSearched(true);
                     }
@@ -203,72 +204,67 @@ export default function Search() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, {backgroundColor: '#000'}]}>
             <LoggedHeader />
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View style={styles.inner}>
-                    <Animated.View
-                        style={[
-                            styles.searchContainer,
-                            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
-                        ]}
-                    >
-                        <View style={styles.inputContainer}>
-                            <Icon name="search" size={moderateScale(18)} color="#666" style={styles.searchIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Search username..."
-                                placeholderTextColor="#666"
-                                value={query}
-                                onChangeText={setQuery}
-                                autoCapitalize="none"
-                                returnKeyType="search"
-                                clearButtonMode="while-editing"
-                            />
+            <FlatList
+                data={results}
+                keyExtractor={item => item.address}
+                renderItem={renderUserItem}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.listContainer, {paddingBottom: 120, backgroundColor: '#000', flexGrow: 1}]}
+                ListHeaderComponent={
+                    <>
+                        <Animated.View
+                            style={[
+                                styles.searchContainer,
+                                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+                            ]}
+                        >
+                            <View style={styles.inputContainer}>
+                                <Icon name="search" size={moderateScale(18)} color="#666" style={styles.searchIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Search username..."
+                                    placeholderTextColor="#666"
+                                    value={query}
+                                    onChangeText={setQuery}
+                                    autoCapitalize="none"
+                                    returnKeyType="search"
+                                    clearButtonMode="while-editing"
+                                />
+                                {query.length > 0 && (
+                                    <TouchableOpacity
+                                        onPress={clearSearch}
+                                        style={styles.clearButton}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Icon name="close-circle" size={moderateScale(18)} color="#666" />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                             {query.length > 0 && (
-                                <TouchableOpacity
-                                    onPress={clearSearch}
-                                    style={styles.clearButton}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                    <Icon name="close-circle" size={moderateScale(18)} color="#666" />
-                                </TouchableOpacity>
+                                <View style={styles.searchInfo}>
+                                    <Text style={styles.searchInfoText}>
+                                        {loading ? 'Searching...' : `${results.length} users found`}
+                                    </Text>
+                                </View>
                             )}
+                        </Animated.View>
+                    </>
+                }
+                ListEmptyComponent={
+                    loading ? (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color="#EAE5DC" />
+                            <Text style={styles.loadingText}>Searching users...</Text>
                         </View>
-
-                        {query.length > 0 && (
-                            <View style={styles.searchInfo}>
-                                <Text style={styles.searchInfoText}>
-                                    {loading ? 'Searching...' : `${results.length} users found`}
-                                </Text>
-                            </View>
-                        )}
-                    </Animated.View>
-
-                    <View style={styles.resultsContainer}>
-                        {loading && (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator size="large" color="#EAE5DC" />
-                                <Text style={styles.loadingText}>Searching users...</Text>
-                            </View>
-                        )}
-
-                        {!loading && results.length === 0 && renderEmptyState()}
-
-                        {!loading && results.length > 0 && (
-                            <FlatList
-                                data={results}
-                                keyExtractor={item => item.address}
-                                renderItem={renderUserItem}
-                                keyboardShouldPersistTaps="handled"
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={styles.listContainer}
-                                ItemSeparatorComponent={() => <View style={styles.separator} />}
-                            />
-                        )}
-                    </View>
-                </View>
-            </TouchableWithoutFeedback>
+                    ) : (
+                        renderEmptyState()
+                    )
+                }
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
         </SafeAreaView>
     );
 }
@@ -291,7 +287,7 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1A1A17',
+        backgroundColor: '#000',
         borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#333',
@@ -325,6 +321,7 @@ const styles = StyleSheet.create({
     },
     listContainer: {
         paddingBottom: verticalScale(20),
+        paddingHorizontal: verticalScale(20)
     },
     resultItemContainer: {
         marginBottom: verticalScale(1),
@@ -343,7 +340,7 @@ const styles = StyleSheet.create({
         width: moderateScale(40),
         height: moderateScale(40),
         borderRadius: moderateScale(20),
-        backgroundColor: '#2A2A28',
+        backgroundColor: '#000',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: moderateScale(12),

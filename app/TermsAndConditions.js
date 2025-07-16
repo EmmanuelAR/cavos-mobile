@@ -183,6 +183,5 @@ BY USING SERVICE OR OTHER SERVICES PROVIDED BY US, YOU ACKNOWLEDGE THAT YOU HAVE
 24. Contact Us
 	 	
 Please send your feedback, comments, requests for technical support by email: adrianvrjs@cavos.xyz.
-These Terms of Service were created for cavos.xyz by PolicyMaker.io on 2025-07-03.
-
+These Terms of Service were created for cavos.xyz on 2025-07-03.
 `

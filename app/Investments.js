@@ -16,7 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
-import { useWallet } from '../atoms/wallet';
+import { useCavosWallet } from '../atoms/cavosWallet';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import LoadingModal from './components/LoadingModal';
@@ -30,14 +30,14 @@ const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * fact
 
 export default function Investments() {
     const navigation = useNavigation();
-    const wallet = useWallet((state) => state.wallet);
+    const cavosWallet = useCavosWallet((state) => state.cavosWallet);
     const [isLoading, setIsLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [totalInvested, setTotalInvested] = useState(0);
     const [apy, setApy] = useState(0);
     const [poolId, setPoolId] = useState(0);
     const [showHeader, setShowHeader] = useState(true);
-    
+
     // Animaciones
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
@@ -87,7 +87,7 @@ export default function Investments() {
             const positionResponse = await axios.post(
                 CAVOS_CORE_API + 'v1/vesu/positions',
                 {
-                    address: wallet.address,
+                    address: cavosWallet.address,
                     pool: "Re7 Starknet Ecosystem",
                 },
                 {
@@ -122,10 +122,10 @@ export default function Investments() {
     };
 
     useEffect(() => {
-        if (wallet) {
+        if (cavosWallet) {
             getAccountInfo();
         }
-    }, [wallet]);
+    }, [cavosWallet]);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
@@ -134,7 +134,7 @@ export default function Investments() {
 
     const animateButtonPress = (callback) => {
         const buttonScale = new Animated.Value(1);
-        
+
         Animated.sequence([
             Animated.timing(buttonScale, {
                 toValue: 0.95,
@@ -162,9 +162,9 @@ export default function Investments() {
                 const response = await axios.post(
                     CAVOS_CORE_API + 'v1/vesu/position/usd/claim',
                     {
-                        address: wallet.address,
-                        hashedPk: wallet.private_key,
-                        hashedPin: wallet.pin,
+                        address: cavosWallet.address,
+                        hashedPk: cavosWallet.private_key,
+                        hashedPin: cavosWallet.pin,
                     },
                     {
                         headers: {
@@ -181,7 +181,7 @@ export default function Investments() {
                         .from('transaction')
                         .insert([
                             {
-                                uid: wallet.uid,
+                                auth0_id: cavosWallet.user_id,
                                 type: "Claim",
                                 amount: response.data.amount,
                                 tx_hash: response.data.result,
@@ -212,33 +212,38 @@ export default function Investments() {
         animateButtonPress(async () => {
             setIsLoading(true);
             try {
-                const response = await axios.post(
-                    CAVOS_CORE_API + 'v1/vesu/position/usd/withdraw',
-                    {
-                        address: wallet.address,
-                        hashedPk: wallet.private_key,
-                        hashedPin: wallet.pin,
-                        poolId: poolId,
-                    },
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
-                        },
-                    }
+                const userPositions = (
+                    await axios.get(
+                        `https://api.vesu.xyz/positions?walletAddress=${cavosWallet.address}&type=earn`
+                    )
+                ).data.data;
+
+                const position = userPositions.find(
+                    (item) =>
+                        item.pool.id === poolId
                 );
 
-                if (response.data.result == false) {
+                const tx = await cavosWallet.execute(
+                    "0x048f4e75c12ca9d35d6172b1cb5f1f70b094888003f9c94fe19f12a67947fd6d",
+                    "redeem",
+                    [
+                        position.collateralShares.value,
+                        '0',
+                        cavosWallet.address,
+                        cavosWallet.address,
+                    ],
+                )
+                if (tx.error) {
                     Alert.alert("An error occurred", "Please try again later");
-                } else if (response.data.amount !== null && response.data.result !== null) {
+                } else if (tx !== null && position.collateral.value !== null) {
                     const { error: txError } = await supabase
                         .from('transaction')
                         .insert([
                             {
-                                uid: wallet.uid,
+                                auth0_id: cavosWallet.user_id,
                                 type: "Close Investment",
-                                amount: response.data.amount,
-                                tx_hash: response.data.result,
+                                amount: position.collateral.value / 10 ** 6,
+                                tx_hash: tx,
                             },
                         ]);
 
@@ -247,7 +252,7 @@ export default function Investments() {
                         Alert.alert('Error saving transaction to database');
                         return;
                     }
-                    Alert.alert("Investment Closed", `${response.data.amount} USDC has been sent to your account, investment data might take a few minutes to update`);
+                    Alert.alert("Investment Closed", `${position.collateral.value / 10 ** 6} USDC has been sent to your account, investment data might take a few minutes to update`);
                 }
             } catch (error) {
                 Alert.alert("An error occurred", "Please try again later");
@@ -259,14 +264,15 @@ export default function Investments() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, {backgroundColor: '#000'}]}>
             {isLoading && <LoadingModal />}
-            
+
             {showHeader && <LoggedHeader />}
 
             <ScrollView
                 ref={scrollViewRef}
-                style={styles.scrollView}
+                style={[styles.scrollView, {backgroundColor: '#000'}]}
+                contentContainerStyle={{paddingBottom: 40}}
                 showsVerticalScrollIndicator={false}
                 scrollEventThrottle={16}
                 refreshControl={
@@ -279,7 +285,7 @@ export default function Investments() {
                 }
             >
                 {/* Header Section */}
-                <Animated.View 
+                <Animated.View
                     style={[
                         styles.headerSection,
                         {
@@ -291,7 +297,7 @@ export default function Investments() {
                 </Animated.View>
 
                 {/* Main Investment Card */}
-                <Animated.View 
+                <Animated.View
                     style={[
                         styles.mainCard,
                         {
@@ -307,7 +313,7 @@ export default function Investments() {
                     <View style={styles.portfolioSection}>
                         <Text style={styles.portfolioLabel}>TOTAL INVESTED</Text>
                         <Text style={styles.portfolioValue}>
-                            ${totalInvested.toFixed(2)}
+                            ${(totalInvested || 0).toFixed(2)}
                         </Text>
                         <Text style={styles.portfolioCurrency}>USDC</Text>
                     </View>
@@ -319,13 +325,13 @@ export default function Investments() {
                                 <Icon name="stats-chart" size={moderateScale(20)} color="#EAE5DC" />
                             </View>
                             <Text style={styles.statLabel}>Current APY</Text>
-                            <Text style={styles.statValue}>{apy.toFixed(2)}%</Text>
+                            <Text style={styles.statValue}>{(apy || 0).toFixed(2)}%</Text>
                         </View>
                     </View>
                 </Animated.View>
 
                 {/* Action Buttons */}
-                <Animated.View 
+                <Animated.View
                     style={[
                         styles.actionSection,
                         {
@@ -335,8 +341,8 @@ export default function Investments() {
                     ]}
                 >
                     {/* Primary Action - Invest */}
-                    <TouchableOpacity 
-                        style={styles.primaryButton} 
+                    <TouchableOpacity
+                        style={styles.primaryButton}
                         onPress={goToInvestment}
                         activeOpacity={0.8}
                     >
@@ -349,8 +355,8 @@ export default function Investments() {
 
                     {/* Secondary Actions */}
                     <View style={styles.secondaryButtons}>
-                        <TouchableOpacity 
-                            style={styles.secondaryButton} 
+                        <TouchableOpacity
+                            style={styles.secondaryButton}
                             onPress={handleClaimRewards}
                             activeOpacity={0.7}
                         >
@@ -358,8 +364,8 @@ export default function Investments() {
                             <Text style={styles.secondaryButtonText}>Claim</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={styles.secondaryButton} 
+                        <TouchableOpacity
+                            style={styles.secondaryButton}
                             onPress={handleCloseInvestment}
                             activeOpacity={0.7}
                         >
@@ -370,7 +376,7 @@ export default function Investments() {
                 </Animated.View>
 
                 {/* Info Cards */}
-                <Animated.View 
+                <Animated.View
                     style={[
                         styles.infoSection,
                         {

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../components/Header';
-import { useWallet } from '../../atoms/wallet';
+import { useCavosWallet } from '../../atoms/cavosWallet';
 import { getBTCPrice } from '../../lib/utils';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
@@ -26,7 +26,7 @@ export default function InvestBTC() {
     const [btcAmount, setBtcAmount] = useState('');
     const [btcBalance, setBtcBalance] = useState(0);
     const [btcRate, setBtcRate] = useState(0);
-    const wallet = useWallet((state) => state.wallet);
+    const cavosWallet = useCavosWallet((state) => state.cavosWallet);
     const [isLoading, setIsLoading] = useState(false);
 
     Font.useFonts({
@@ -43,7 +43,7 @@ export default function InvestBTC() {
                 setIsLoading(true);
                 const response = await axios.post(
                     CAVOS_CORE_API + "v1/wallet/btc/balance",
-                    { address: wallet.address },
+                    { address: cavosWallet.address },
                     {
                         headers: {
                             'Content-Type': 'application/json',
@@ -70,10 +70,10 @@ export default function InvestBTC() {
             }
         }
 
-        if (wallet) {
+        if (cavosWallet) {
             fetchBalance();
         }
-    }, [wallet]);
+    }, [cavosWallet]);
 
     const handleChangeAmount = (text) => {
         const sanitized = text.replace(',', '.');
@@ -98,9 +98,9 @@ export default function InvestBTC() {
                 CAVOS_CORE_API + 'v1/vesu/position/btc/create',
                 {
                     amount: amount,
-                    address: wallet.address,
-                    hashedPk: wallet.private_key,
-                    hashedPin: wallet.pin,
+                    address: cavosWallet.address,
+                    hashedPk: cavosWallet.private_key,
+                    hashedPin: cavosWallet.pin,
                 },
                 {
                     headers: {
@@ -121,7 +121,7 @@ export default function InvestBTC() {
                 .from('transaction')
                 .insert([
                     {
-                        uid: wallet.uid,
+                        auth0_id: cavosWallet.user_id,
                         type: "Invest BTC",
                         amount: amount,
                         tx_hash: txHash,
@@ -235,7 +235,7 @@ export default function InvestBTC() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000000',
+        backgroundColor: '#000',
         paddingTop: Platform.OS === 'android' ? 20 : 0,
     },
     scrollContent: {

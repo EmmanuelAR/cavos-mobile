@@ -18,7 +18,7 @@ import {
   JetBrainsMono_400Regular,
 } from "@expo-google-fonts/jetbrains-mono";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useWallet } from "../atoms/wallet";
+import { useCavosWallet } from '../atoms/cavosWallet';
 import * as Clipboard from "expo-clipboard";
 import QRCode from "react-native-qrcode-svg";
 
@@ -30,7 +30,7 @@ const moderateScale = (size, factor = 0.5) =>
   size + (scale(size) - size) * factor;
 
 export default function Receive() {
-  const wallet = useWallet((state) => state.wallet);
+  const cavosWallet = useCavosWallet((state) => state.cavosWallet);
   const [copiedAnimation] = useState(new Animated.Value(0));
   const [selectedMethod, setSelectedMethod] = useState("crypto"); // 'crypto' or 'bank' or 'qr'
   const [amount, setAmount] = useState("");
@@ -51,9 +51,9 @@ export default function Receive() {
   Text.defaultProps = Text.defaultProps || {};
   Text.defaultProps.style = { fontFamily: "Satoshi-Variable" };
 
-  const walletAddress = wallet.address.startsWith("0x")
-    ? "0x" + wallet.address.slice(2).padStart(64, "0")
-    : "0x" + wallet.address.padStart(64, "0");
+  const walletAddress = cavosWallet?.address?.startsWith("0x")
+    ? "0x" + cavosWallet?.address.slice(2).padStart(64, "0")
+    : "0x" + cavosWallet?.address?.padStart(64, "0") || "";
 
   const supportedNetworks = ["Starknet"];
 
