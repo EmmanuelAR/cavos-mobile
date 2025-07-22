@@ -21,7 +21,6 @@ import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import Icon from 'react-native-vector-icons/Ionicons';
 import LoadingModal from './components/LoadingModal';
 import LoggedHeader from './components/LoggedHeader';
-import { supabase } from '../lib/supabaseClient';
 
 const { width, height } = Dimensions.get('window');
 const scale = size => width / 375 * size;
@@ -188,18 +187,24 @@ export default function BitcoinAccount() {
                 if (response.data.result == false) {
                     Alert.alert("An error occurred", "Please try again later");
                 } else if (response.data.amount !== null && response.data.result !== null) {
-                    const { error: txError } = await supabase
-                        .from('transaction')
-                        .insert([
-                            {
-                                auth0_id: cavosWallet.user_id,
-                                type: "Close Investment",
-                                amount: response.data.amount,
-                                tx_hash: response.data.result,
-                            },
-                        ]);
 
-                    if (txError) {
+                    const responseTransaction = await axios.post(
+                        CAVOS_CORE_API + 'v1/transaction',
+                        {
+                            auth0_id: cavosWallet.user_id,
+                            type: "Close Investment",
+                            amount: response.data.amount,
+                            tx_hash: response.data.result,
+                        },
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                            },
+                        }
+                    );
+                    
+                    if (responseTransaction.status!=201) {
                         console.error('Insert error:', txError);
                         Alert.alert('Error saving transaction to database');
                         return;
