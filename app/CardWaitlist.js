@@ -15,7 +15,6 @@ import {
     Animated,
     ActivityIndicator
 } from 'react-native';
-import { supabase } from '../lib/supabaseClient';
 const { width, height } = Dimensions.get('window');
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import axios from 'axios';

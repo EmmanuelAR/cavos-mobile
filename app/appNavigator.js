@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ActivityIndicator, View } from "react-native";
-import { supabase } from "../lib/supabaseClient";
 // Screens
 import Login from "./auth/Login";
 import Pin from "./auth/Pin";
