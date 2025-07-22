@@ -76,7 +76,7 @@ export default function UpdatedDashboard() {
           }
         );
         if (response.status!=200) {
-        console.error("Supabase read error:", response.message);
+        console.error("Read error:", response.message);
         Alert.alert("Error reading from database");
         return;
       }
