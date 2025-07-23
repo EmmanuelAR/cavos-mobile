@@ -191,7 +191,7 @@ export default function BitcoinAccount() {
                     const responseTransaction = await axios.post(
                         CAVOS_CORE_API + 'v1/transaction',
                         {
-                            auth0_id: cavosWallet.user_id,
+                            user_id: cavosWallet.user_id,
                             type: "Close Investment",
                             amount: response.data.amount,
                             tx_hash: response.data.result,
