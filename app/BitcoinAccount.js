@@ -205,7 +205,7 @@ export default function BitcoinAccount() {
                     );
                     
                     if (responseTransaction.status!=201) {
-                        console.error('Insert error:', txError);
+                        console.error('Insert error');
                         Alert.alert('Error saving transaction to database');
                         return;
                     }

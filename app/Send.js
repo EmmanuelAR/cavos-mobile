@@ -23,7 +23,6 @@ import { useCavosWallet } from '../atoms/cavosWallet';
 import { getWalletBalance } from "../lib/utils";
 import axios from "axios";
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from "../lib/constants";
-import { supabase } from "../lib/supabaseClient";
 import LoadingModal from "./components/LoadingModal";
 import QRScanner from "./QRScanner";
 import { formatAmount } from 'cavos-service-sdk';
@@ -194,19 +193,25 @@ export default function Send() {
                 "transfer",
                 calldata
               );
-              const { error: txError } = await supabase
-                .from("transaction")
-                .insert([
-                  {
-                    auth0_id: cavosWallet.user_id,
+              
+              const responseTransaction = await axios.post(
+                CAVOS_CORE_API + 'v1/transaction',
+                {
+                    user_id: cavosWallet.user_id,
                     type: "Send",
-                    amount: amount,
+                    amount: Number(amount),
                     tx_hash: txHash,
+                },
+                {
+                  headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                   },
-                ]);
-
-              if (txError) {
-                console.error("Insert error:", txError);
+                }
+              );
+              
+              if (responseTransaction.status!==201) {
+                console.error("Insert error:");
                 Alert.alert("Error saving transaction to database");
                 setIsLoading(false);
                 return;
@@ -218,23 +223,35 @@ export default function Send() {
                   "0x" + normalizedAddress.slice(2).replace(/^0+/, "");
               }
 
-              const { data: recipientUser, error: recipientError } =
-                await supabase
-                  .from("user_wallet")
-                  .select("user_id")
-                  .eq("address", normalizedAddress)
-                  .single();
-              if (recipientUser && recipientUser.user_id) {
-                const { error: txError } = await supabase
-                  .from("transaction")
-                  .insert([
-                    {
-                      auth0_id: recipientUser.user_id,
+              const responseGet = await axios.get(
+                `${CAVOS_CORE_API}v1/user/wallet`,
+                {
+                  params: {
+                    address: normalizedAddress 
+                  },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                  }
+                }
+              );
+                
+              if (responseGet.data.user_id) {
+                const responseTransaction = await axios.post(
+                  CAVOS_CORE_API + 'v1/transaction',
+                  {
+                      user_id: responseGet.data.user_id,
                       type: "Receive",
-                      amount: amount,
-                      tx_hash: txHash,
+                      amount: Number(amount),
+                      tx_hash: "txHash",
+                  },
+                  {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
-                  ]);
+                  }
+                );
               }
 
               setIsLoading(false);
@@ -372,20 +389,24 @@ export default function Send() {
 
               const txHash = response.data.result;
 
-              // Guarda la transacción del remitente (Send)
-              const { error: txError } = await supabase
-                .from("transaction")
-                .insert([
-                  {
-                    auth0_id: cavosWallet.user_id,
+              const responseTransaction = await axios.post(
+                CAVOS_CORE_API + 'v1/transaction',
+                {
+                    user_id: cavosWallet.user_id,
                     type: "Send",
-                    amount: parsedAmount,
+                    amount: Number(parsedAmount),
                     tx_hash: txHash,
+                },
+                {
+                  headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                   },
-                ]);
-
-              if (txError) {
-                console.error("Insert error:", txError);
+                }
+              );
+              
+              if (responseTransaction.status!==201) {
+                console.error("Insert error");
                 Alert.alert("Error saving transaction to database");
                 setIsLoading(false);
                 setIsProcessingQR(false);
@@ -398,23 +419,35 @@ export default function Send() {
                   "0x" + normalizedAddress.slice(2).replace(/^0+/, "");
               }
 
-              const { data: recipientUser, error: recipientError } =
-                await supabase
-                  .from("user_wallet")
-                  .select("user_id")
-                  .eq("address", normalizedAddress)
-                  .single();
-              if (recipientUser && recipientUser.user_id) {
-                const { error: txError } = await supabase
-                  .from("transaction")
-                  .insert([
-                    {
-                      auth0_id: recipientUser.user_id,
+              const responseGet = await axios.get(
+                `${CAVOS_CORE_API}v1/user/wallet`,
+                {
+                  params: {
+                    address: normalizedAddress 
+                  },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                  }
+                }
+              );
+
+              if (responseGet.data.user_id) {
+                const responseTransaction = await axios.post(
+                  CAVOS_CORE_API + 'v1/transaction',
+                  {
+                      user_id: responseGet.data.user_id,
                       type: "Receive",
-                      amount: parsedAmount,
-                      tx_hash: txHash,
+                      amount: Number(parsedAmount),
+                      tx_hash: "txHash",
+                  },
+                  {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
-                  ]);
+                  }
+                );
               }
 
               setIsLoading(false);
