@@ -12,7 +12,8 @@ import {
     TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../lib/supabaseClient';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 
 export default function Invitation() {
     const [invitationCode, setInvitationCode] = useState('');
@@ -27,31 +28,46 @@ export default function Invitation() {
 
         try {
             setIsLoading(true);
-            const { data: codeData, error: codeError } = await supabase
-                .from('code')
-                .select('*')
-                .eq('invitation_code', invitationCode.toUpperCase())
-                .single();
 
-            if (codeError) {
-                if (codeError.code === 'PGRST116') {
-                    Alert.alert('Invalid Code', 'The invitation code is incorrect or expired.');
-                } else {
-                    throw codeError;
+            const responseCode = await axios.get(
+                `${CAVOS_CORE_API}v1/invitation/code`,
+                {
+                    params: {
+                        invitation_code: invitationCode.toUpperCase()
+                    },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                    }
                 }
+            );
+
+            if (responseCode.status !== 200) {
+                Alert.alert('Invalid Code', 'The invitation code is incorrect or expired.');
                 setIsLoading(false);
                 return;
             }
 
-            const { error: updateError } = await supabase
-                .from('code')
-                .update({ uses: codeData.uses + 1 })
-                .eq('invitation_code', invitationCode.toUpperCase());
-
-            if (updateError) {
-                throw updateError;
+            const response = await axios.put(
+                `${CAVOS_CORE_API}v1/invitation/code`,
+                {
+                  invitation_code: invitationCode.toUpperCase(), 
+                  uses: responseCode.data.code.uses.uses + 1          
+                },
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                  }
+                }
+            );
+              
+            if (response.status !== 200) {
+                Alert.alert('Error updating invitation code', 'The invitation code is incorrect or expired.');
+                setIsLoading(false);
+                return;
             }
-
+            
             setIsLoading(false);
             navigation.replace('PhoneLogin');
         } catch (error) {
