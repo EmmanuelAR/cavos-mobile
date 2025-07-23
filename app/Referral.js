@@ -14,11 +14,12 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
-import { supabase } from '../lib/supabaseClient';
 import LoggedHeader from './components/LoggedHeader';
 import LoadingModal from './components/LoadingModal';
 import * as Clipboard from 'expo-clipboard';
 import { useCavosWallet } from '../atoms/cavosWallet';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,24 +58,41 @@ export default function Referral() {
                 code += characters.charAt(Math.floor(Math.random() * characters.length));
             }
 
-            const { data: existingCode, error: checkError } = await supabase
-                .from('code')
-                .select('*')
-                .eq('auth0_id', cavosWallet?.user_id)
-                .single();
+            const responseCode = await axios.get(
+                `${CAVOS_CORE_API}v1/invitation/code`,
+                {
+                    params: {
+                        user_id: cavosWallet?.user_id
+                    },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                    }
+                }
+            );
 
-            if (checkError && checkError.code !== 'PGRST116') {
-                throw checkError;
+            if (responseCode.status !== 200 ) {
+                throw responseCode.data.message;
             }
 
-            if (existingCode) {
+            if (responseCode.data.code) {
                 Alert.alert('Error', 'You already have an invitation code. Please use it to invite your friends.');
             } else {
-                const { error: insertError } = await supabase
-                    .from('code')
-                    .insert([{ auth0_id: cavosWallet?.user_id, invitation_code: code }]);
-
-                if (insertError) {
+                const responseNewCode = await axios.post(
+                    `${CAVOS_CORE_API}v1/invitation/code`,
+                    {
+                        user_id: cavosWallet?.user_id,
+                        invitation_code: code
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                        }
+                    }
+                );
+                
+                if (responseNewCode.status!=200) {
                     throw insertError;
                 }
             }
@@ -102,20 +120,27 @@ export default function Referral() {
             setUserReferrals(0);
             setUserRewards(0);
 
-            const { data, error } = await supabase
-                .from('code')
-                .select('invitation_code, uses')
-                .eq('auth0_id', cavosWallet.user_id)
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching invitation code:', error);
-            } else if (data) {
-                if (data.invitation_code) {
-                    setReferralCode(data.invitation_code);
+            const responseCode = await axios.get(
+                `${CAVOS_CORE_API}v1/invitation/code`,
+                {
+                    params: {
+                        user_id: cavosWallet?.user_id
+                    },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                    }
                 }
-                if (data.uses !== null) {
-                    setUserReferrals(data.uses);
+            );
+            
+            if (responseCode.status !== 200) {
+                console.error('Error fetching invitation code:', responseCode.data.message);
+            } else if (responseCode.data) {
+                if (responseCode.data.code.invitation_code) {
+                    setReferralCode(responseCode.data.code.invitation_code);
+                }
+                if (responseCode.data.uses !== null) {
+                    setUserReferrals(responseCode.data.code.uses);
                 }
             }
         } catch (error) {
@@ -238,13 +263,13 @@ export default function Referral() {
                     {referralCode ? (
                         <View style={styles.codeContainer}>
                             <Text style={styles.referralCodeText}>{referralCode}</Text>
-                            <TouchableOpacity 
+                        <TouchableOpacity 
                                 style={styles.copyButton}
                                 onPress={copyToClipboard}
-                            >
+                        >
                                 <Text style={styles.copyButtonText}>Copy</Text>
-                            </TouchableOpacity>
-                        </View>
+                        </TouchableOpacity>
+                    </View>
                     ) : (
                         <View style={styles.comingSoonCard}>
                             <TouchableOpacity 
