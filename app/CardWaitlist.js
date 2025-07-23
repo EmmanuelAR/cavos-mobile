@@ -153,7 +153,7 @@ export default function CardWaitlist() {
         setIsSubmitting(true);
         try {
             const response = await axios.post(
-                CAVOS_CORE_API + 'v1/cardWaitlist',
+                CAVOS_CORE_API + 'v1/card/waitlist',
                 {
                     email: email.toLowerCase(),
                     country: country,

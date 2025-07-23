@@ -19,7 +19,6 @@ import { useCavosWallet } from '../atoms/cavosWallet';
 import { getWalletBalance } from '../lib/utils';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
-import { supabase } from '../lib/supabaseClient';
 import LoadingModal from './components/LoadingModal';
 import { formatAmount } from 'cavos-service-sdk';
 
@@ -93,6 +92,7 @@ export default function Invest() {
                 },
             ];
             const tx = await cavosWallet.executeCalls(calls);
+            console.log(tx);
             return tx;
         } catch (err) {
             console.log(err);
@@ -127,24 +127,29 @@ export default function Invest() {
                             setIsLoading(false);
                             return;
                         }
-
-                        const { error: txError } = await supabase
-                            .from('transaction')
-                            .insert([
-                                {
-                                    auth0_id: cavosWallet.user_id,
-                                    type: "Invest",
-                                    amount: investmentAmount,
-                                    tx_hash: positionTx,
+                        
+                        const responseTransaction = await axios.post(
+                            CAVOS_CORE_API + 'v1/transaction',
+                            {
+                                user_id: cavosWallet.user_id,
+                                type: "Invest",
+                                amount: Number(investmentAmount),
+                                tx_hash: positionTx,
+                            },
+                            {
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                                 },
-                            ]);
-
-                        if (txError) {
-                            console.error('Insert error:', txError);
+                            }
+                        );
+                        if (responseTransaction.status!=201) {
+                            console.error('Insert error:', responseTransaction.message)
                             Alert.alert('Error saving transaction to database');
                             setIsLoading(false);
                             return;
                         }
+                        
                         setIsLoading(false);
 
                         Alert.alert('Success', `You've invested $${investmentAmount} in Vesu Protocol, the results might take a few minutes to show up in your account.`);
