@@ -13,7 +13,6 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { MaterialIcons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabaseClient';
 import { decryptPin, encryptPin } from '../../lib/utils';
 import { useCavosWallet } from '../../atoms/cavosWallet';
 import { useUserProfile } from '../../atoms/userProfile';
@@ -162,24 +161,31 @@ export default function Pin() {
         try {
             if (cavosWallet?.user_id) {
                 const profileData = {
+                    id:userProfile.id,
                     auth0_id: cavosWallet.user_id,
                     address: cavosWallet.address,
                     phone_number: phoneNumber,
                     hashed_pin: hashedPin,
+                    username:userProfile.username
                 };
 
-                const { data, error } = await supabase
-                    .from('user_profile')
-                    .upsert(profileData)
-                    .select()
-                    .single();
+                const response = await axios.post(
+                  `${CAVOS_CORE_API}v1/user/profile`,
+                  profileData,
+                  {
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                    },
+                  }
+                );
 
-                if (error) {
-                    console.error('Error creating/updating user profile:', error);
-                    throw error;
+                if (response.status!==201) {
+                    console.error('Error creating/updating user profile:');
+                    return;
                 }
-                setUserProfile(data);
-                return data;
+                setUserProfile(response.data.data);
+                return response.data.data;
             }
         } catch (error) {
             console.error('Error in createOrUpdateUserProfile:', error);
