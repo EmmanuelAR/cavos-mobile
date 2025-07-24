@@ -17,10 +17,11 @@ import {
     ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../lib/supabaseClient';
 import LoggedHeader from '../components/LoggedHeader';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useCavosWallet } from '../../atoms/cavosWallet';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 
 const { width, height } = Dimensions.get('window');
 const scale = size => width / 375 * size;
@@ -62,14 +63,19 @@ export default function Search() {
             const fetchAllUsers = async () => {
                 setLoading(true);
                 try {
-                    const { data, error } = await supabase
-                        .from('user_profile')
-                        .select('username, address')
-                        .not('username', 'is', null)
-                        .limit(100);
 
-                    if (!error) {
-                        const resultsWithWallet = data.filter(user => user.address !== cavosWallet?.address);
+                    const response = await axios.get(
+                        CAVOS_CORE_API + 'v1/user/profile?list=1',
+                        {
+                            headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                            },
+                        }
+                    );                 
+
+                    if (response.status === 200) {
+                        const resultsWithWallet = response.data.profiles.filter(user => user.address !== cavosWallet?.address);
                         setResults(resultsWithWallet || []);
                         setHasSearched(true);
                     }
@@ -89,15 +95,20 @@ export default function Search() {
                 setLoading(true);
                 setHasSearched(true);
                 try {
-                    const { data, error } = await supabase
-                        .from('user_wallet')
-                        .select('user_name, address')
-                        .ilike('user_name', `%${query.trim()}%`)
-                        .not('user_name', 'is', null)
-                        .limit(20);
 
-                    if (!error) {
-                        setResults(data || []);
+                    const response = await axios.get(
+                        CAVOS_CORE_API + 'v1/user/profile',
+                        {
+                            params: { query }, 
+                            headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                            },
+                        }
+                    );
+
+                    if (response.status === 200) {
+                        setResults(response.data.wallets || []);
                     }
                 } catch (e) {
                     console.error('Error searching users:', e);
