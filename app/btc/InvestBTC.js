@@ -16,7 +16,6 @@ import { useCavosWallet } from '../../atoms/cavosWallet';
 import { getBTCPrice } from '../../lib/utils';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
-import { supabase } from '../../lib/supabaseClient';
 import LoadingModal from '../components/LoadingModal';
 import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
