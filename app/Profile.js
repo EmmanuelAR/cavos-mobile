@@ -53,7 +53,7 @@ export default function Profile() {
             );
 
             if (responseProfile.status!=200) {
-                console.error('Error fetching username:', error);
+                console.error('Error fetching username');
                 return;
             }
             if (responseProfile.data && responseProfile.data.username) {

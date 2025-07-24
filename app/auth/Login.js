@@ -54,7 +54,7 @@ export default function Login() {
       return;
     }
 
-    if (!responseProfile.data.username) {
+    if (!responseProfile.data.data.username) {
       navigation.replace("Invitation");
     }
     else {

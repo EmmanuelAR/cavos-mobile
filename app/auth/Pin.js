@@ -21,6 +21,8 @@ import { useFaceIdSettings } from '../../atoms/faceIdSettings';
 import Header from '../components/Header';
 import LoadingModal from '../components/LoadingModal';
 import * as LocalAuthentication from 'expo-local-authentication';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,25 +58,26 @@ export default function Pin() {
     useEffect(() => {
         async function getAccountInfo() {
             try {
-                const { data, error } = await supabase
-                    .from('user_profile')
-                    .select('*')
-                    .eq('auth0_id', cavosWallet.user_id);
+                const responseProfile = await axios.get(
+                  `${CAVOS_CORE_API}v1/user/profile`,
+                  {
+                    params: {
+                      user_id: cavosWallet.user_id,
+                    },
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                    },
+                  }
+                );
 
-                if (error) {
-                    console.error('Supabase read error:', error);
-                    Alert.alert('Error reading from database');
-                    return;
-                }
-
-                if (data.length === 0) {
-                    Alert.alert("Setup a PIN to create your account");
-                }
-                else {
-                    setUserProfile(data[0]);
+                if (responseProfile.status != 200) {
+                  Alert.alert("Setup a PIN to create your account");
+                } else {
+                  setUserProfile(responseProfile.data.data);
                 }
             } catch (error) {
-                console.error('Error al obtener el balance:', error);
+                console.error('Fail getting user profile');
             }
         }
         if (cavosWallet?.user_id) {
