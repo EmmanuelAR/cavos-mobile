@@ -115,21 +115,25 @@ export default function InvestBTC() {
             }
 
             const txHash = response.data.result;
-
-            // Save transaction to database
-            const { error: txError } = await supabase
-                .from('transaction')
-                .insert([
-                    {
-                        auth0_id: cavosWallet.user_id,
-                        type: "Invest BTC",
-                        amount: amount,
-                        tx_hash: txHash,
+            
+            const responseTransaction = await axios.post(
+                CAVOS_CORE_API + 'v1/transaction',
+                {
+                    user_id: cavosWallet.user_id,
+                    type: "Invest BTC",
+                    amount: Number(amount),
+                    tx_hash: txHash,
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
-                ]);
-
-            if (txError) {
-                console.error('Insert error:', txError);
+                }
+            );
+                      
+            if (responseTransaction.status!==201) {
+                console.error('Insert error');
                 Alert.alert('Error saving transaction to database');
                 setIsLoading(false);
                 return;

@@ -104,7 +104,7 @@ export default function BuyBTC() {
                     user_id: cavosWallet.user_id,
                     type: "Buy BTC",
                     amount: Number(amount),
-                    tx_hash: "txHash",
+                    tx_hash: txHash,
                 },
                 {
                     headers: {
