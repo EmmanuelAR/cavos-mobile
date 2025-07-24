@@ -56,9 +56,9 @@ export default function Profile() {
                 console.error('Error fetching username');
                 return;
             }
-            if (responseProfile.data && responseProfile.data.username) {
-                setUsername(responseProfile.data.username);
-                setSavedUsername(responseProfile.data.username);
+            if (responseProfile.data.data && responseProfile.data.data.username) {
+                setUsername(responseProfile.data.data.username);
+                setSavedUsername(responseProfile.data.data.username);
             }
         };
         fetchUsername();
@@ -87,7 +87,7 @@ export default function Profile() {
     
         setIsSaving(false);
         if (responseProfile.status!==200) {
-            console.error(responseProfile.data.message);
+            console.error('Error getting user profile');
             Alert.alert('Error', 'Could not save username.');
             return;
         }
