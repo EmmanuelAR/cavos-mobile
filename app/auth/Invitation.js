@@ -41,7 +41,7 @@ export default function Invitation() {
                     }
                 }
             );
-
+            
             if (responseCode.status !== 200) {
                 Alert.alert('Invalid Code', 'The invitation code is incorrect or expired.');
                 setIsLoading(false);
@@ -52,7 +52,7 @@ export default function Invitation() {
                 `${CAVOS_CORE_API}v1/invitation/code`,
                 {
                   invitation_code: invitationCode.toUpperCase(), 
-                  uses: responseCode.data.code.uses.uses + 1          
+                  uses: responseCode.data.code.uses + 1          
                 },
                 {
                   headers: {
@@ -61,6 +61,7 @@ export default function Invitation() {
                   }
                 }
             );
+            console.log(response);
               
             if (response.status !== 200) {
                 Alert.alert('Error updating invitation code', 'The invitation code is incorrect or expired.');
