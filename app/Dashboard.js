@@ -59,7 +59,6 @@ export default function UpdatedDashboard() {
 
   const getAccountInfo = async () => {
     try {
-      console.log(cavosWallet.tokenExpiry);
       setIsLoading(true);
       const newBalance = await getWalletBalance(cavosWallet.address, cavosWallet.network);
       setBalance(newBalance.balance);

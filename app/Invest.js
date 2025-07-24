@@ -92,10 +92,8 @@ export default function Invest() {
                 },
             ];
             const tx = await cavosWallet.executeCalls(calls);
-            console.log(tx);
             return tx;
         } catch (err) {
-            console.log(err);
             Alert.alert("An error ocurred while creating position, try again.");
             setIsLoading(false);
         }
