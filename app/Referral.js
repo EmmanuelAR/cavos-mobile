@@ -93,7 +93,7 @@ export default function Referral() {
                 );
                 
                 if (responseNewCode.status!=200) {
-                    throw insertError;
+                    throw new Error('Failed to create invitation code');
                 }
             }
 

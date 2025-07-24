@@ -141,7 +141,7 @@ export default function Invest() {
                                 },
                             }
                         );
-                        if (responseTransaction.status!=201) {
+                        if (responseTransaction.status!==201) {
                             console.error('Insert error:', responseTransaction.message)
                             Alert.alert('Error saving transaction to database');
                             setIsLoading(false);

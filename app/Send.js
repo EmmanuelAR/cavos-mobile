@@ -243,7 +243,7 @@ export default function Send() {
                       user_id: responseGet.data.user_id,
                       type: "Receive",
                       amount: Number(amount),
-                      tx_hash: "txHash",
+                      tx_hash: txHash,
                   },
                   {
                     headers: {
@@ -439,7 +439,7 @@ export default function Send() {
                       user_id: responseGet.data.user_id,
                       type: "Receive",
                       amount: Number(parsedAmount),
-                      tx_hash: "txHash",
+                      tx_hash: txHash,
                   },
                   {
                     headers: {

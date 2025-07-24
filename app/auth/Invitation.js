@@ -63,7 +63,7 @@ export default function Invitation() {
             );
               
             if (response.status !== 200) {
-                Alert.alert('Error updating invitation code', 'The invitation code is incorrect or expired.');
+                Alert.alert('Error', 'Failed to update invitation code usage.');
                 setIsLoading(false);
                 return;
             }

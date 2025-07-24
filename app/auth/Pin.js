@@ -70,7 +70,7 @@ export default function Pin() {
                   }
                 );
 
-                if (responseProfile.status != 200) {
+                if (responseProfile.status !== 200) {
                   Alert.alert("Setup a PIN to create your account");
                 } else {
                   setUserProfile(responseProfile.data.data);
@@ -161,12 +161,12 @@ export default function Pin() {
         try {
             if (cavosWallet?.user_id) {
                 const profileData = {
-                    id:userProfile.id,
+                    id: userProfile.id,
                     auth0_id: cavosWallet.user_id,
                     address: cavosWallet.address,
                     phone_number: phoneNumber,
                     hashed_pin: hashedPin,
-                    username:userProfile.username
+                    username: userProfile.username
                 };
 
                 const response = await axios.post(

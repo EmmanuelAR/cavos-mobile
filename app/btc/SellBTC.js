@@ -99,7 +99,7 @@ export default function SellBTC() {
                 user_id: cavosWallet.user_id,
                 type: "Sell BTC",
                 amount: Number(amount * btcRate),
-                tx_hash: "txHash",
+                tx_hash: txHash,
               },
               {
                 headers: {

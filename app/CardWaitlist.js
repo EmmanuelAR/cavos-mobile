@@ -166,7 +166,7 @@ export default function CardWaitlist() {
                 }
             );
             
-            if (response.status!=201) {
+            if (response.status!==201) {
                 console.error('Error joining waitlist:', response.message);
                 Alert.alert('Error', 'Could not join the waitlist. Please try again.');
                 return;

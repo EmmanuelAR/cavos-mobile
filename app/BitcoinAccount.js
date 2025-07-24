@@ -204,9 +204,9 @@ export default function BitcoinAccount() {
                         }
                     );
                     
-                    if (responseTransaction.status!=201) {
-                        console.error('Insert error');
-                        Alert.alert('Error saving transaction to database');
+                    if (responseTransaction.status!==201) {
+                        console.error('Transaction API error:', responseTransaction.status, responseTransaction.data);
+                        Alert.alert('Error', 'Failed to save transaction record');
                         return;
                     }
                     Alert.alert("Investment Closed", `${response.data.amount} BTC has been sent to your account, investment data might take a few minutes to update`);
