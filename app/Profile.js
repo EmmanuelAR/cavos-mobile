@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { supabase } from '../lib/supabaseClient';
 import { useNavigation } from '@react-navigation/native';
 import { useCavosWallet } from '../atoms/cavosWallet';
 import { useFaceIdSettings } from '../atoms/faceIdSettings';
 import { useUserProfile } from '../atoms/userProfile';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 
 const { width, height } = Dimensions.get('window');
 const scale = size => width / 375 * size;
@@ -35,21 +36,29 @@ export default function Profile() {
     const [copiedAnimation] = useState(new Animated.Value(0));
 
     useEffect(() => {
-        // Fetch username from supabase
         const fetchUsername = async () => {
             if (!cavosWallet) return;
-            const { data, error } = await supabase
-                .from('user_profile')
-                .select('username')
-                .eq('auth0_id', cavosWallet.user_id)
-                .single();
-            if (error) {
-                console.error('Error fetching username:', error);
+            
+            const responseProfile = await axios.get(
+                `${CAVOS_CORE_API}v1/user/profile`,
+                {
+                    params: {
+                    user_id: cavosWallet.user_id
+                    },
+                    headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                    }
+                }
+            );
+
+            if (responseProfile.status!=200) {
+                console.error('Error fetching username');
                 return;
             }
-            if (data && data.username) {
-                setUsername(data.username);
-                setSavedUsername(data.username);
+            if (responseProfile.data.data && responseProfile.data.data.username) {
+                setUsername(responseProfile.data.data.username);
+                setSavedUsername(responseProfile.data.data.username);
             }
         };
         fetchUsername();
@@ -61,13 +70,24 @@ export default function Profile() {
             return;
         }
         setIsSaving(true);
-        const { error } = await supabase
-            .from('user_profile')
-            .update({ username: username.trim() })
-            .eq('auth0_id', cavosWallet.user_id);
+
+        const responseProfile = await axios.put(
+            `${CAVOS_CORE_API}v1/user/profile`,
+            {
+                user_id: cavosWallet.user_id,
+                username: username.trim()
+            },
+            {
+                headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                }
+            }
+        );
+    
         setIsSaving(false);
-        if (error) {
-            console.error(error);
+        if (responseProfile.status!==200) {
+            console.error('Error getting user profile');
             Alert.alert('Error', 'Could not save username.');
             return;
         }
@@ -118,19 +138,38 @@ export default function Profile() {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
-                        const { error: txError } = await supabase
-                            .from('transaction')
-                            .delete()
-                            .eq('auth0_id', cavosWallet.user_id);
-                        if (txError) {
+                        const response = await axios.delete(
+                            `${CAVOS_CORE_API}v1/transaction`,
+                            {
+                                data: {
+                                    user_id: cavosWallet.user_id
+                                },
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                                }
+                            }
+                        );
+                              
+                        if (response.status!==200) {
                             Alert.alert('Error', 'Could not delete transactions.');
                             return;
                         }
-                        const { error: walletError } = await supabase
-                            .from('user_profile')
-                            .delete()
-                            .eq('auth0_id', cavosWallet.user_id);
-                        if (walletError) {
+
+                        const responseDeleteUser = await axios.delete(
+                            `${CAVOS_CORE_API}v1/user/profile`,
+                            {
+                                data: {
+                                    user_id: cavosWallet.user_id
+                                },
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+                                }
+                            }
+                        );
+                        
+                        if (responseDeleteUser.status!==200) {
                             Alert.alert('Error', 'Could not delete wallet data.');
                             return;
                         }

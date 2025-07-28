@@ -21,11 +21,11 @@ import {
 } from "@expo-google-fonts/jetbrains-mono";
 import { getWalletBalance } from "../lib/utils";
 import { useCavosWallet } from "../atoms/cavosWallet";
-import { supabase } from "../lib/supabaseClient";
 import LoggedHeader from "./components/LoggedHeader"; // Usando el nuevo header
 import LoadingModal from "./components/LoadingModal";
 import { TransactionInvoiceModal } from "./components/TransactionInvoiceModal";
-import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 
 const { width, height } = Dimensions.get("window");
 
@@ -59,23 +59,28 @@ export default function UpdatedDashboard() {
 
   const getAccountInfo = async () => {
     try {
-      console.log(cavosWallet.tokenExpiry);
       setIsLoading(true);
       const newBalance = await getWalletBalance(cavosWallet.address, cavosWallet.network);
       setBalance(newBalance.balance);
-      const { data, error } = await supabase
-        .from("transaction")
-        .select("*")
-        .eq("auth0_id", cavosWallet?.user_id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Supabase read error:", error);
+        const response = await axios.get(
+          `${CAVOS_CORE_API}v1/transaction`,
+          {
+            params: {
+              user_id: cavosWallet.user_id
+            },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+            }
+          }
+        );
+        if (response.status!==200) {
+        console.error("Read error:", response.message);
         Alert.alert("Error reading from database");
         return;
       }
 
-      setTransactions(data);
+      setTransactions(response.data.data);
     } catch (error) {
       console.error("Error fetching balance and transactions:", error);
     } finally {

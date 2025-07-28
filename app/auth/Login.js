@@ -16,8 +16,9 @@ import { useNavigation } from "@react-navigation/native";
 import * as Font from "expo-font";
 import { SignInWithApple, SignInWithGoogle } from "cavos-service-native";
 import { useCavosWallet } from "../../atoms/cavosWallet";
-import { supabase } from '../../lib/supabaseClient';
 import { T_C } from "../TermsAndConditions";
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,19 +34,27 @@ export default function Login() {
   Text.defaultProps = Text.defaultProps || {};
   Text.defaultProps.style = { fontFamily: "Satoshi-Variable" };
 
-  const handleNavigate = async (auth0_id) => {
-    const { data, error } = await supabase
-      .from('user_profile')
-      .select('*')
-      .eq('auth0_id', auth0_id);
+  const handleNavigate = async (auth0_id) => { 
+    const responseProfile = await axios.get(
+      `${CAVOS_CORE_API}v1/user/profile`,
+      {
+        params: {
+          user_id: auth0_id
+        },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${CAVOS_CORE_TOKEN}`
+        }
+      }
+    );
 
-    if (error) {
-      console.error('Supabase read error:', error);
-      Alert.alert('Error reading from database');
+    if (responseProfile.status!=200) {
+      console.error('Error reading from user profile');
+      Alert.alert('Error reading from user profile');
       return;
     }
 
-    if (data.length === 0) {
+    if (!responseProfile.data.data.username) {
       navigation.replace("Invitation");
     }
     else {

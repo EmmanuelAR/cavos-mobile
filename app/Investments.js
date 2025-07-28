@@ -20,7 +20,6 @@ import { useCavosWallet } from '../atoms/cavosWallet';
 import axios from 'axios';
 import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
 import LoadingModal from './components/LoadingModal';
-import { supabase } from '../lib/supabaseClient';
 import LoggedHeader from './components/LoggedHeader';
 
 const { width, height } = Dimensions.get('window');
@@ -159,6 +158,7 @@ export default function Investments() {
         animateButtonPress(async () => {
             setIsLoading(true);
             try {
+        
                 const response = await axios.post(
                     CAVOS_CORE_API + 'v1/vesu/position/usd/claim',
                     {
@@ -177,19 +177,25 @@ export default function Investments() {
                 if (response.data.result == false) {
                     Alert.alert("No rewards available", "Come back in a few days to claim your rewards");
                 } else if (response.data.amount !== null && response.data.result !== null) {
-                    const { error: txError } = await supabase
-                        .from('transaction')
-                        .insert([
-                            {
-                                auth0_id: cavosWallet.user_id,
-                                type: "Claim",
-                                amount: response.data.amount,
-                                tx_hash: response.data.result,
-                            },
-                        ]);
 
-                    if (txError) {
-                        console.error('Insert error:', txError);
+                    const responseTransaction = await axios.post(
+                        CAVOS_CORE_API + 'v1/transaction',
+                        {
+                            user_id: cavosWallet.user_id,
+                            type: "Claim",
+                            amount: Number(response.data.amount),
+                            tx_hash: response.data.result,
+                        },
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                            },
+                        }
+                    );
+                        
+                    if (responseTransaction.status!=201) {
+                        console.error('Insert error:', responseTransaction.message);
                         Alert.alert('Error saving transaction to database');
                         return;
                     }
@@ -236,19 +242,25 @@ export default function Investments() {
                 if (tx.error) {
                     Alert.alert("An error occurred", "Please try again later");
                 } else if (tx !== null && position.collateral.value !== null) {
-                    const { error: txError } = await supabase
-                        .from('transaction')
-                        .insert([
-                            {
-                                auth0_id: cavosWallet.user_id,
-                                type: "Close Investment",
-                                amount: position.collateral.value / 10 ** 6,
-                                tx_hash: tx,
-                            },
-                        ]);
 
-                    if (txError) {
-                        console.error('Insert error:', txError);
+                    const responseTransaction = await axios.post(
+                        CAVOS_CORE_API + 'v1/transaction',
+                        {
+                            user_id: cavosWallet.user_id,
+                            type: "Close Investment",
+                            amount: position.collateral.value / 10 ** 6,
+                            tx_hash: tx,
+                        },
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                            },
+                        }
+                    );
+                            
+                    if (responseTransaction.status!=201) {
+                        console.error('Insert error:', responseTransaction.message);
                         Alert.alert('Error saving transaction to database');
                         return;
                     }

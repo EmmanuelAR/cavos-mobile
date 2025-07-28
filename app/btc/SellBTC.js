@@ -13,11 +13,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useCavosWallet } from '../../atoms/cavosWallet';
 import { getBTCPrice } from '../../lib/utils';
-import { supabase } from '../../lib/supabaseClient';
-import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 import LoadingModal from '../components/LoadingModal';
 import axios from 'axios';
-
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 export default function SellBTC() {
     const [btcAmount, setBtcAmount] = useState('');
     const [btcBalance, setBtcBalance] = useState(0);
@@ -88,8 +86,6 @@ export default function SellBTC() {
                 "0x3Fe2b97C1Fd336E750087D68B9b867997Fd64a2661fF3ca5A7C771641e8e7AC",
                 "0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
             )
-
-            console.log(txHash);
             
             if (txHash.error) {
                 Alert.alert("Error", "Failed to buy BTC, please try again.");
@@ -97,19 +93,24 @@ export default function SellBTC() {
                 return;
             }
 
-            const { error: txError } = await supabase
-                .from('transaction')
-                .insert([
-                    {
-                        auth0_id: cavosWallet.user_id,
-                        type: "Sell BTC",
-                        amount: amount * btcRate,
-                        tx_hash: txHash,
-                    },
-                ]);
+            const responseTransaction = await axios.post(
+              CAVOS_CORE_API + "v1/transaction",
+              {
+                user_id: cavosWallet.user_id,
+                type: "Sell BTC",
+                amount: Number(amount * btcRate),
+                tx_hash: txHash,
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                },
+              }
+            );
 
-            if (txError) {
-                console.error('Insert error:', txError);
+            if (responseTransaction.status !== 201) {
+                console.error('Insert error');
                 Alert.alert('Error saving transaction to database');
                 setIsLoading(false);
                 return;

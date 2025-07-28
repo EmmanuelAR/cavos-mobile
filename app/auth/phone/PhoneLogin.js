@@ -21,10 +21,11 @@ import * as Font from 'expo-font';
 import { useFonts, JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { twilioService } from '../../../lib/twilioService';
 import { useCavosWallet } from '../../../atoms/cavosWallet';
-import { supabase } from '../../../lib/supabaseClient';
 import Header from '../../components/Header';
 import * as Haptics from 'expo-haptics';
 import { callingCodes } from '../../../lib/constants';
+import axios from 'axios';
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../../lib/constants';
 
 const { width, height } = Dimensions.get('window');
 const scale = size => width / 375 * size;
@@ -59,29 +60,37 @@ export default function PhoneLogin() {
     const checkExistingProfile = async () => {
       if (cavosWallet?.user_id) {
         try {
-          const { data, error } = await supabase
-            .from('user_profile')
-            .select('phone_number')
-            .eq('auth0_id', cavosWallet.user_id)
-            .single();
+          
+          const responseProfile = await axios.get(
+            `${CAVOS_CORE_API}v1/user/profile`,
+            {
+              params: {
+                user_id: cavosWallet.user_id,
+              },
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+              },
+            }
+          );
 
-          if (data?.phone_number) {
-            setExistingPhone(data.phone_number);
+          if (responseProfile.data.data.phone_number) {
+            setExistingPhone(responseProfile.data.data.phone_number);
             try {
               // await twilioService.sendOTP(data.phone_number);
               navigation.replace('PhoneOTP', { 
-                phoneNumber: data.phone_number,
+                phoneNumber: responseProfile.data.data.phone_number,
                 existingUser: true 
               });
             } catch (error) {
-              console.error('Error sending OTP to existing user:', error);
+              console.error('Error sending OTP to existing user');
               setLoading(false);
             }
           } else {
             setLoading(false);
           }
         } catch (error) {
-          console.error('Error checking user profile:', error);
+          console.error('Error checking user profile');
           setLoading(false);
         }
       } else {

@@ -13,11 +13,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useCavosWallet } from '../../atoms/cavosWallet';
 import { getBTCPrice, getUsdcPrice, getWalletBalance } from '../../lib/utils';
-import Header from '../components/Header';
-import { supabase } from '../../lib/supabaseClient';
-import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../../lib/constants';
 import LoadingModal from '../components/LoadingModal';
-import axios from 'axios';
+import axios from "axios";
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from "../../lib/constants";
+
 
 export default function BuyBTC() {
     const [usdAmount, setUsdAmount] = useState('');
@@ -99,20 +98,24 @@ export default function BuyBTC() {
                 return;
             }
 
-            // Save transaction to database
-            const { error: txError } = await supabase
-                .from('transaction')
-                .insert([
-                    {
-                        auth0_id: cavosWallet.user_id,
-                        type: "Buy BTC",
-                        amount: amount,
-                        tx_hash: txHash,
+            const responseTransaction = await axios.post(
+                CAVOS_CORE_API + 'v1/transaction',
+                {
+                    user_id: cavosWallet.user_id,
+                    type: "Buy BTC",
+                    amount: Number(amount),
+                    tx_hash: txHash,
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
                     },
-                ]);
-
-            if (txError) {
-                console.error('Insert error:', txError);
+                }
+            );
+                  
+            if (responseTransaction.status!==201) {
+                console.error('Insert error');
                 Alert.alert('Error saving transaction to database');
                 setIsLoading(false);
                 return;

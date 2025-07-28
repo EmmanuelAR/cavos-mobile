@@ -15,9 +15,10 @@ import {
     Animated,
     ActivityIndicator
 } from 'react-native';
-import { supabase } from '../lib/supabaseClient';
-
 const { width, height } = Dimensions.get('window');
+import { CAVOS_CORE_API, CAVOS_CORE_TOKEN } from '../lib/constants';
+import axios from 'axios';
+
 
 const scale = size => width / 375 * size;
 const verticalScale = size => height / 812 * size;
@@ -151,14 +152,22 @@ export default function CardWaitlist() {
         
         setIsSubmitting(true);
         try {
-            const {error} = await supabase.from('card_waitlist').insert([
+            const response = await axios.post(
+                CAVOS_CORE_API + 'v1/card/waitlist',
                 {
                     email: email.toLowerCase(),
                     country: country,
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${CAVOS_CORE_TOKEN}`,
+                    },
                 }
-            ]);
-            if (error) {
-                console.error('Error joining waitlist:', error);
+            );
+            
+            if (response.status!==201) {
+                console.error('Error joining waitlist:', response.message);
                 Alert.alert('Error', 'Could not join the waitlist. Please try again.');
                 return;
             }
